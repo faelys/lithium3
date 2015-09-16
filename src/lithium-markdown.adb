@@ -138,6 +138,7 @@ package body Lithium.Markdown is
       loop
          Buffer.Soft_Reset;
          Parsed.Soft_Reset;
+         Parser.Reset;
 
          select
             accept Render
