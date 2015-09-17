@@ -27,12 +27,22 @@ package body Lithium.Markdown is
 
    type Buffer_Access is access Sx.Atom_Buffers.Atom_Buffer;
 
+   type Buffer_Copy is new Markup.Element_Callback with record
+      Source, Destination : not null Buffer_Access;
+   end record;
+
    procedure Append
      (To : in out Buffer_Access;
       Text : in String);
 
    function Export (Buffer : Sx.Atom_Buffers.Atom_Buffer)
      return Sx.Atom_Refs.Immutable_Reference;
+
+   overriding procedure Open (Element : in out Buffer_Copy);
+   overriding procedure Append
+     (Element : in out Buffer_Copy; Text : in String)
+     is null;
+   overriding procedure Close (Element : in out Buffer_Copy) is null;
 
    package Renderers is new Markup.Renderers.Html (Buffer_Access);
 
@@ -67,6 +77,13 @@ package body Lithium.Markdown is
    end Export;
 
 
+   overriding procedure Open (Element : in out Buffer_Copy) is
+   begin
+      Element.Destination.Soft_Reset;
+      Element.Destination.Append (Element.Source.Data);
+   end Open;
+
+
 
    -----------------
    -- Worker Task --
@@ -77,6 +94,7 @@ package body Lithium.Markdown is
       Renderer : Renderers.Renderer_Ref;
       Parser : Markup.Parsers.Markdown.Extensions.Extended_Parser;
       Parsed : constant Buffer_Access := new Sx.Atom_Buffers.Atom_Buffer;
+      Summary_Buf : constant Buffer_Access := new Sx.Atom_Buffers.Atom_Buffer;
    begin
       Renderer.Set_Output (Parsed);
       Renderer.Set_Format (Renderers.Html);
@@ -85,7 +103,8 @@ package body Lithium.Markdown is
       Parser.Atx_Header (Renderer.Header);
       Parser.Atx_Header_With_Id (Renderer.Header);
       Parser.Code_Block (Renderer.Code_Block);
-      Parser.Horizontal_Rule (Renderer.Horizontal_Rule);
+      Parser.Horizontal_Rule
+        (Buffer_Copy'(Source => Parsed, Destination => Summary_Buf));
       Parser.Html_Block (Renderer.Raw_Html_Block);
       Parser.Html_Tag_Block (Renderer.Raw_Html_Block);
       Parser.Html_Comment_Block (Renderer.Raw_Html_Block);
@@ -138,12 +157,14 @@ package body Lithium.Markdown is
       loop
          Buffer.Soft_Reset;
          Parsed.Soft_Reset;
+         Summary_Buf.Soft_Reset;
          Parser.Reset;
 
          select
             accept Render
               (Source : in out Ada.Streams.Root_Stream_Type'Class;
-               Output : out Sx.Atom_Refs.Immutable_Reference)
+               Output : out Sx.Atom_Refs.Immutable_Reference;
+               Summary : out Sx.Atom_Refs.Immutable_Reference)
             do
                Read_Text :
                declare
@@ -161,6 +182,17 @@ package body Lithium.Markdown is
                  (Natools.String_Slices.To_Slice (Sx.To_String (Buffer.Data)));
 
                Output := Export (Parsed.all);
+
+               Export_Summary :
+               declare
+                  use type Sx.Count;
+               begin
+                  if Summary_Buf.Length > 0 then
+                     Summary := Export (Summary_Buf.all);
+                  else
+                     Summary := Sx.Atom_Refs.Null_Immutable_Reference;
+                  end if;
+               end Export_Summary;
             end Render;
          or
             terminate;

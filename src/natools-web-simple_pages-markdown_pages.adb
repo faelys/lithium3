@@ -75,18 +75,22 @@ package body Natools.Web.Simple_Pages.Markdown_Pages is
       Parser : Lithium.Line_Parsers.Parser (Stream'Access);
       Lock : S_Expressions.Lockable.Lock_State;
       Text : S_Expressions.Atom_Refs.Immutable_Reference;
+      Summary : S_Expressions.Atom_Refs.Immutable_Reference;
    begin
       Parser.Next;
       Parser.Lock (Lock);
       Parser.Next;
       Page := Create (Parser);
 
-      Lithium.Markdown.Extended.Render (Stream, Text);
+      Lithium.Markdown.Extended.Render (Stream, Text, Summary);
 
       declare
          Mutator : constant Data_Refs.Mutator := Page.Ref.Update;
       begin
          Insert_Text (Mutator, "markdown-text", Text);
+         if not Summary.Is_Empty then
+            Insert_Text (Mutator, "markdown-summary", Summary);
+         end if;
 
          Mutator.File_Path := Object.File_Path;
          Mutator.Web_Path := S_Expressions.Atom_Ref_Constructors.Create (Path);

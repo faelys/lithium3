@@ -26,7 +26,8 @@ package Lithium.Markdown is
    task Extended is
       entry Render
         (Source : in out Ada.Streams.Root_Stream_Type'Class;
-         Output : out Natools.S_Expressions.Atom_Refs.Immutable_Reference);
+         Output : out Natools.S_Expressions.Atom_Refs.Immutable_Reference;
+         Summary : out Natools.S_Expressions.Atom_Refs.Immutable_Reference);
    end Extended;
 
 end Lithium.Markdown;
