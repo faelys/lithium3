@@ -23,6 +23,7 @@ with Natools.Web.Simple_Pages.Markdown_Pages;
 with Natools.Web.Tag_Pages;
 
 with Lithium.Legacy_Filters;
+with Lithium.Markdown.Filters;
 
 package body Lithium.Dispatchers is
 
@@ -62,6 +63,8 @@ package body Lithium.Dispatchers is
       Holder.Register
         ("directory", Natools.Web.Backends.Filesystem.Create'Access);
 
+      Holder.Register
+        ("extended-markdown", Lithium.Markdown.Filters.Create_Extended'Access);
       Holder.Register
         ("html-escape", Natools.Web.Escapes.Filters.Create'Access);
       Holder.Register
