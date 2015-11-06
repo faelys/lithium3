@@ -64,6 +64,16 @@ package SQLite3 is
                    Value      : Ada.Strings.Unbounded.Unbounded_String;
                    Status     : out Error_Code);
 
+   procedure Bind (SQL_Handle : SQLite3_Statement;
+                   Index      : SQL_Parameter_Index;
+                   Value      : String;
+                   Status     : out Error_Code);
+
+   procedure Bind (SQL_Handle : SQLite3_Statement;
+                   Index      : SQL_Parameter_Index;
+                   Value      : Interfaces.C.double;
+                   Status     : out Error_Code);
+
    procedure Column (SQL_Handle : SQLite3_Statement;
                      Index      : SQL_Column_Index;
                      Value      : out Int);

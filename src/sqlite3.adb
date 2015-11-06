@@ -176,6 +176,60 @@ package body SQLite3 is
       Status := Error_Code (Code);
    end Bind;
 
+   procedure Bind (SQL_Handle : SQLite3_Statement;
+                   Index      : SQL_Parameter_Index;
+                   Value      : String;
+                   Status     : out Error_Code)
+   is
+      -- int sqlite3_bind_text
+      --       (sqlite3_stmt*,
+      --        int,
+      --        const char*,
+      --        int,
+      --        void(*)(void*));
+      function sqlite3_bind_text (Stmt  : Statement_Private_Access;
+                                  Index : Interfaces.C.int;
+                                  Value : Interfaces.C.char_array;
+                                  Bytes : Interfaces.C.int;
+                                  Opt   : Interfaces.C.long)
+        return Interfaces.C.Int;
+      pragma Import (C, sqlite3_bind_text, "sqlite3_bind_text");
+
+      Code : Interfaces.C.Int;
+   begin
+      Code := sqlite3_bind_text
+        (Stmt  => Sql_Handle.Ptr,
+         Index => Interfaces.C.int (Index),
+         Value => Interfaces.C.To_C (Value),
+         Bytes => Interfaces.C.int (Value'Length),
+         Opt   => SQLITE_TRANSIENT);
+      Status := Error_Code (Code);
+   end Bind;
+
+   procedure Bind (SQL_Handle : SQLite3_Statement;
+                   Index      : SQL_Parameter_Index;
+                   Value      : Interfaces.C.double;
+                   Status     : out Error_Code)
+   is
+      -- int sqlite3_bind_double
+      --       (sqlite3_stmt*,
+      --        int,
+      --        double);
+      function sqlite3_bind_double (Stmt  : Statement_Private_Access;
+                                    Index : Interfaces.C.int;
+                                    Value : Interfaces.C.double)
+        return Interfaces.C.Int;
+      pragma Import (C, sqlite3_bind_double, "sqlite3_bind_double");
+
+      Code : Interfaces.C.Int;
+   begin
+      Code := sqlite3_bind_double
+        (Stmt  => Sql_Handle.Ptr,
+         Index => Interfaces.C.int (Index),
+         Value => Value);
+      Status := Error_Code (Code);
+   end Bind;
+
    procedure Column (SQL_Handle : SQLite3_Statement;
                      Index      : SQL_Column_Index;
                      Value      : out Int) is
