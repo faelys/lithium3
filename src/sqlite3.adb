@@ -116,6 +116,20 @@ package body SQLite3 is
       Status := Error_Code (Code);
    end Reset;
 
+   procedure Clear_Bindings (SQL_Handle : SQLite3_Statement;
+                             Status     : out Error_Code)
+   is
+      -- int sqlite3_clear_bindings(sqlite3_stmt*);
+      function sqlite3_clear_bindings (Stmt : Statement_Private_Access)
+        return Interfaces.C.Int;
+      pragma Import (C, sqlite3_clear_bindings, "sqlite3_clear_bindings");
+
+      Code : Interfaces.C.Int;
+   begin
+      Code := sqlite3_clear_bindings (SQL_Handle.Ptr);
+      Status := Error_Code (Code);
+   end Clear_Bindings;
+
    procedure Bind (SQL_Handle : SQLite3_Statement;
                    Index      : SQL_Parameter_Index;
                    Value      : Integer;

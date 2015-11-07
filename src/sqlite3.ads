@@ -49,6 +49,9 @@ package SQLite3 is
 
    procedure Reset (SQL_Handle : SQLite3_Statement; Status : out Error_Code);
 
+   procedure Clear_Bindings (SQL_Handle : SQLite3_Statement;
+                             Status     : out Error_Code);
+
    procedure Bind (SQL_Handle : SQLite3_Statement;
                    Index      : SQL_Parameter_Index;
                    Value      : Integer;
