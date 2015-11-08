@@ -1,3 +1,4 @@
+pragma Style_Checks (Off);
 --
 -- Copyright (c) 2009, 2012 Tero Koskinen <tero.koskinen@iki.fi>
 --
@@ -13,7 +14,6 @@
 -- ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 --
-with Interfaces.C;
 with Interfaces.C.Strings;
 
 package body SQLite3 is
@@ -65,7 +65,7 @@ package body SQLite3 is
         return Interfaces.C.Int;
       pragma Import (C, sqlite3_prepare_v2, "sqlite3_prepare_v2");
 
-      Sql_Str : Interfaces.C.Char_Array :=
+      Sql_Str : constant Interfaces.C.Char_Array :=
         Interfaces.C.To_C (Sql);
       Code : Interfaces.C.Int;
    begin

@@ -1,3 +1,4 @@
+pragma Style_Checks (Off);
 --
 -- Copyright (c) 2009, 2012 Tero Koskinen <tero.koskinen@iki.fi>
 --
@@ -14,7 +15,6 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 --
 with Ada.Strings.Unbounded;
-with System;
 with Interfaces.C;
 
 package SQLite3 is
