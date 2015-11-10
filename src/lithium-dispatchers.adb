@@ -14,6 +14,7 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.           --
 ------------------------------------------------------------------------------
 
+with Ada.Real_Time;
 with Natools.Web.Backends.Filesystem;
 with Natools.Web.Escapes.Filters;
 with Natools.Web.Exchanges;
@@ -23,6 +24,7 @@ with Natools.Web.Reload_Pages;
 with Natools.Web.Simple_Pages.Markdown_Pages;
 with Natools.Web.Tag_Pages;
 
+with Lithium.Access_Log;
 with Lithium.Legacy_Filters;
 with Lithium.Markdown.Filters;
 
@@ -41,9 +43,20 @@ package body Lithium.Dispatchers is
    is
       Aliased_Req : aliased constant AWS.Status.Data := Request;
       Exchange : aliased Natools.Web.Exchanges.Exchange (Aliased_Req'Access);
+      Result : AWS.Response.Data;
+      Start, Middle : Ada.Real_Time.Time;
    begin
+      Start := Ada.Real_Time.Clock;
       Dispatcher.Ref.Update.Respond (Exchange);
-      return Natools.Web.Exchanges.Response (Exchange);
+      Middle := Ada.Real_Time.Clock;
+      Result := Natools.Web.Exchanges.Response (Exchange);
+
+      Access_Log.Log
+        (Request, Result,
+         Ada.Real_Time.To_Duration (Ada.Real_Time."-" (Middle, Start)),
+         Ada.Real_Time.To_Duration (Ada.Real_Time."-"
+           (Ada.Real_Time.Clock, Middle)));
+      return Result;
    end Dispatch;
 
 
