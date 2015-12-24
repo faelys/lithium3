@@ -94,12 +94,9 @@ package body Natools.Web.Simple_Pages.Markdown_Pages is
 
          Mutator.File_Path := Object.File_Path;
          Mutator.Web_Path := S_Expressions.Atom_Ref_Constructors.Create (Path);
-         Mutator.Comment_List.Load (Builder, Mutator.Self, Mutator.Web_Path);
       end;
 
-      Sites.Insert (Builder, Path, Page);
-      Sites.Insert (Builder, Page.Get_Tags, Page);
+      Register (Page, Builder, Path);
    end Load;
 
 end Natools.Web.Simple_Pages.Markdown_Pages;
-
