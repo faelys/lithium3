@@ -86,7 +86,7 @@ package body Lithium.Markdown is
 
 
    -----------------
-   -- Worker Task --
+   -- Worker Tasks --
    -----------------
 
    task body Extended is
@@ -205,5 +205,84 @@ package body Lithium.Markdown is
          Ada.Text_IO.Put_Line
            (Ada.Exceptions.Exception_Information (Ex));
    end Extended;
+
+
+   task body Comment is
+      Buffer : Sx.Atom_Buffers.Atom_Buffer;
+      Renderer : Renderers.Renderer_Ref;
+      Parser : Markup.Parsers.Markdown.Extensions.Extended_Parser;
+      Parsed : constant Buffer_Access := new Sx.Atom_Buffers.Atom_Buffer;
+   begin
+      Renderer.Set_Output (Parsed);
+      Renderer.Set_Format (Renderers.Html);
+      Renderer.Set_Newline (Renderers.LF);
+
+      Parser.Code_Block (Renderer.Code_Block);
+      Parser.List (Renderer.Ordered_List, Renderer.List_Item,
+                   Markup.Parsers.Markdown.Styles.Ordered);
+      Parser.List (Renderer.Unordered_List, Renderer.List_Item,
+                   Markup.Parsers.Markdown.Styles.Unordered);
+      Parser.Paragraph (Renderer.Paragraph);
+      Parser.Quote_Block (Renderer.Quote_Block);
+
+      Parser.Emphasis (Renderer.Emphasis, 1);
+      Parser.Emphasis (Renderer.Strong, 2);
+      Parser.Emphasis (Renderer.Strong_Emphasis, 3);
+      Parser.Entity (Renderer.Raw_Html_Span);
+      Parser.Escape (Renderer.Raw_Text_Span);
+      Parser.Code_Span (Renderer.Code_Span);
+      Parser.Discount_Image (Renderer.Image);
+      Parser.Auto_Link (Renderer.Anchor);
+
+      Parser.PME_Table
+        (Renderer.Table,
+         Renderer.Table_Row,
+         Renderer.Table_Header_Cell,
+         Renderer.Table_Data_Cell);
+      Parser.Discount_Fenced_Code_Block (Renderer.Code_Block);
+
+      Parser.Link (Renderer.Anchor);
+
+      Parser.Emphasis (Renderer.Inserted, 2, "+");
+      Parser.Emphasis (Renderer.Deleted, 2, "-");
+
+      loop
+         Buffer.Soft_Reset;
+         Parsed.Soft_Reset;
+         Parser.Reset;
+
+         select
+            accept Render
+              (Source : in out Ada.Streams.Root_Stream_Type'Class;
+               Output : out Sx.Atom_Refs.Immutable_Reference)
+            do
+               Read_Text :
+               declare
+                  Chunk : Ada.Streams.Stream_Element_Array (1 .. 1024);
+                  Last : Ada.Streams.Stream_Element_Offset;
+               begin
+                  loop
+                     Source.Read (Chunk, Last);
+                     exit when Last not in Chunk'Range;
+                     Buffer.Append (Chunk (Chunk'First .. Last));
+                  end loop;
+               end Read_Text;
+
+               Parser.Process
+                 (Natools.String_Slices.To_Slice (Sx.To_String (Buffer.Data)));
+
+               Output := Export (Parsed.all);
+            end Render;
+         or
+            terminate;
+         end select;
+      end loop;
+   exception
+      when Ex : others =>
+         Ada.Text_IO.Put_Line
+           ("Exception raised in Lithium.Markdown.Comment task");
+         Ada.Text_IO.Put_Line
+           (Ada.Exceptions.Exception_Information (Ex));
+   end Comment;
 
 end Lithium.Markdown;

@@ -30,4 +30,10 @@ package Lithium.Markdown is
          Summary : out Natools.S_Expressions.Atom_Refs.Immutable_Reference);
    end Extended;
 
+   task Comment is
+      entry Render
+        (Source : in out Ada.Streams.Root_Stream_Type'Class;
+         Output : out Natools.S_Expressions.Atom_Refs.Immutable_Reference);
+   end Comment;
+
 end Lithium.Markdown;
