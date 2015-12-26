@@ -80,6 +80,8 @@ package body Lithium.Dispatchers is
         ("directory", Natools.Web.Backends.Filesystem.Create'Access);
 
       Holder.Register
+        ("comment-markdown", Lithium.Markdown.Filters.Create_Comment'Access);
+      Holder.Register
         ("extended-markdown", Lithium.Markdown.Filters.Create_Extended'Access);
       Holder.Register
         ("html-escape", Natools.Web.Escapes.Filters.Create'Access);

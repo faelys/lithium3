@@ -49,6 +49,19 @@ package Lithium.Markdown.Filters is
      (Arguments : in out Natools.S_Expressions.Lockable.Descriptor'Class)
      return Natools.Web.Filters.Filter'Class;
 
+
+
+   type Comment is new Natools.Web.Filters.Filter with private;
+
+   overriding procedure Apply
+     (Object : in Comment;
+      Output : in out Ada.Streams.Root_Stream_Type'Class;
+      Data : in Ada.Streams.Stream_Element_Array);
+
+   function Create_Comment
+     (Arguments : in out Natools.S_Expressions.Lockable.Descriptor'Class)
+     return Natools.Web.Filters.Filter'Class;
+
 private
 
    type Memory_Stream (Size : Ada.Streams.Stream_Element_Count)
@@ -58,5 +71,6 @@ private
    end record;
 
    type Extended is new Natools.Web.Filters.Filter with null record;
+   type Comment is new Natools.Web.Filters.Filter with null record;
 
 end Lithium.Markdown.Filters;

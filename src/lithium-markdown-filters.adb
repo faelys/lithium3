@@ -73,4 +73,32 @@ package body Lithium.Markdown.Filters is
       return Extended'(null record);
    end Create_Extended;
 
+
+
+   overriding procedure Apply
+     (Object : in Comment;
+      Output : in out Ada.Streams.Root_Stream_Type'Class;
+      Data : in Ada.Streams.Stream_Element_Array)
+   is
+      pragma Unreferenced (Object);
+
+      Stream : Memory_Stream
+        := (Ada.Streams.Root_Stream_Type with
+            Size => Data'Length, Data => Data, Cursor => 0);
+      Rendered : Natools.S_Expressions.Atom_Refs.Immutable_Reference;
+   begin
+      Lithium.Markdown.Comment.Render (Stream, Rendered);
+      Output.Write (Rendered.Query);
+   end Apply;
+
+
+   function Create_Comment
+     (Arguments : in out Natools.S_Expressions.Lockable.Descriptor'Class)
+     return Natools.Web.Filters.Filter'Class
+   is
+      pragma Unreferenced (Arguments);
+   begin
+      return Comment'(null record);
+   end Create_Comment;
+
 end Lithium.Markdown.Filters;
