@@ -67,8 +67,6 @@ package body Natools.Web.Simple_Pages.Markdown_Pages is
       Builder : in out Sites.Site_Builder;
       Path : in S_Expressions.Atom)
    is
-      Page : Page_Ref;
-
       Stream : aliased File_Streams.File_Stream := File_Streams.Open
         (Ada.Streams.Stream_IO.In_File,
          S_Expressions.To_String (Object.File_Path.Query));
@@ -80,23 +78,27 @@ package body Natools.Web.Simple_Pages.Markdown_Pages is
       Parser.Next;
       Parser.Lock (Lock);
       Parser.Next;
-      Page := Create (Parser);
-
-      Lithium.Markdown.Extended.Render (Stream, Text, Summary);
 
       declare
-         Mutator : constant Data_Refs.Mutator := Page.Ref.Update;
+         Page : constant Page_Ref := Create (Parser);
       begin
-         Insert_Text (Mutator, "markdown-text", Text);
-         if not Summary.Is_Empty then
-            Insert_Text (Mutator, "markdown-summary", Summary);
-         end if;
+         Lithium.Markdown.Extended.Render (Stream, Text, Summary);
 
-         Mutator.File_Path := Object.File_Path;
-         Mutator.Web_Path := S_Expressions.Atom_Ref_Constructors.Create (Path);
+         declare
+            Mutator : constant Data_Refs.Mutator := Page.Ref.Update;
+         begin
+            Insert_Text (Mutator, "markdown-text", Text);
+            if not Summary.Is_Empty then
+               Insert_Text (Mutator, "markdown-summary", Summary);
+            end if;
+
+            Mutator.File_Path := Object.File_Path;
+            Mutator.Web_Path
+              := S_Expressions.Atom_Ref_Constructors.Create (Path);
+         end;
+
+         Register (Page, Builder, Path);
       end;
-
-      Register (Page, Builder, Path);
    end Load;
 
 end Natools.Web.Simple_Pages.Markdown_Pages;
