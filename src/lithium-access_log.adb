@@ -21,6 +21,9 @@
 
 
 with Ada.Containers.Doubly_Linked_Lists;
+with Ada.Exceptions;
+with Ada.Strings.Unbounded;
+with Ada.Text_IO;
 with AWS.Headers;
 with AWS.Messages;
 with Interfaces.C;
@@ -29,8 +32,42 @@ with SQLite3;
 
 package body Lithium.Access_Log is
 
-   package Stmt_Lists is new Ada.Containers.Doubly_Linked_Lists
-     (SQLite3.SQLite3_Statement, SQLite3."=");
+   subtype String_Holder is Ada.Strings.Unbounded.Unbounded_String;
+   function Hold (Value : in String) return String_Holder
+     renames Ada.Strings.Unbounded.To_Unbounded_String;
+   function To_String (Holder : in String_Holder) return String
+     renames Ada.Strings.Unbounded.To_String;
+   function Is_Empty (Holder : in String_Holder) return Boolean
+     is (Ada.Strings.Unbounded.Length (Holder) = 0);
+   Empty_Holder : constant String_Holder
+     := Ada.Strings.Unbounded.Null_Unbounded_String;
+
+   type Extended_Log_Entry (Is_Empty : Boolean := True) is record
+      case Is_Empty is
+         when True => null;
+         when False =>
+            Peer_Name : String_Holder;
+            Method : String_Holder;
+            Path : String_Holder;
+            Http_Version : String_Holder;
+            Status_Code : Integer;
+            Bytes : Long_Integer;
+            Referrer : String_Holder;
+            User_Agent : String_Holder;
+            Cookies : String_Holder;
+            Build_Time : Duration;
+            Export_Time : Duration;
+            Host : String_Holder;
+            Real_IP : String_Holder;
+            Forwarded_For : String_Holder;
+      end case;
+   end record;
+
+   subtype Log_Entry is Extended_Log_Entry (Is_Empty => False);
+
+   SQLite_Error : exception;
+
+   package Log_Queue is new Ada.Containers.Doubly_Linked_Lists (Log_Entry);
 
    Create_SQL : constant String := "CREATE TABLE IF NOT EXISTS access ("
      & "time NOT NULL DEFAULT CURRENT_TIMESTAMP, "
@@ -55,106 +92,36 @@ package body Lithium.Access_Log is
      & "host, real_ip, forwarded_for) "
      & "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14);";
 
-   Handle : SQLite3.SQLite3_DB;
-   Initialized : Boolean := False;
+   procedure Bind
+     (Stmt : in out SQLite3.SQLite3_Statement;
+      Values : in Log_Entry);
 
-   procedure Create_Stmt (Stmt : out SQLite3.SQLite3_Statement);
-   procedure Initialize (Name : in String);
+   procedure Initialize
+     (Handle : in out SQLite3.SQLite3_DB;
+      Name : in String);
 
-   protected Stmt_Pool is
-      procedure Get (Stmt : out SQLite3.SQLite3_Statement);
-      procedure Release (Stmt : out SQLite3.SQLite3_Statement);
+
+   protected Queue is
+      entry Append (Values : in Log_Entry);
+      procedure Next (Values : out Extended_Log_Entry);
    private
-      Available : Stmt_Lists.List;
-   end Stmt_Pool;
+      Task_Waiting : Boolean := True;
+      List : Log_Queue.List;
+   end Queue;
+
+   task Worker is
+      entry Run (Values : in Log_Entry);
+   end Worker;
+
 
 
    ------------------------------
    -- Local Helper Subprograms --
    ------------------------------
 
-   procedure Initialize (Name : in String) is
-      use type SQLite3.Error_Code;
-      Status : SQLite3.Error_Code;
-      Stmt : SQLite3.SQLite3_Statement;
-   begin
-      SQLite3.Open (Name, Handle, Status);
-
-      if Status /= SQLite3.SQLITE_OK then
-         Natools.Web.Log
-           (Natools.Web.Severities.Critical,
-            "Unable to open """ & Name & """: "
-            & SQLite3.Error_Code'Image (Status));
-      end if;
-
-      SQLite3.Prepare (Handle, Create_SQL, Stmt, Status);
-
-      if Status /= SQLite3.SQLITE_OK then
-         Natools.Web.Log
-           (Natools.Web.Severities.Error,
-            "Unable to prepare create statement: "
-            & SQLite3.Error_Code'Image (Status)
-            & ' ' & SQLite3.Error_Message (Handle));
-         SQLite3.Close (Handle, Status);
-         return;
-      end if;
-
-      loop
-         SQLite3.Step (Stmt, Status);
-         exit when Status = SQLite3.SQLITE_DONE;
-
-         if Status /= SQLite3.SQLITE_ROW then
-            Natools.Web.Log
-              (Natools.Web.Severities.Error,
-               "Unable to create: " & SQLite3.Error_Code'Image (Status)
-               & ' ' & SQLite3.Error_Message (Handle));
-            SQLite3.Close (Handle, Status);
-            return;
-         end if;
-      end loop;
-
-      SQLite3.Finish (Stmt, Status);
-
-      if Status /= SQLite3.SQLITE_OK then
-         Natools.Web.Log
-           (Natools.Web.Severities.Error,
-            "Unable to finish create statement: "
-            & SQLite3.Error_Code'Image (Status)
-            & ' ' & SQLite3.Error_Message (Handle));
-         SQLite3.Close (Handle, Status);
-         return;
-      end if;
-
-      Initialized := True;
-   end Initialize;
-
-
-   procedure Create_Stmt (Stmt : out SQLite3.SQLite3_Statement) is
-      use type SQLite3.Error_Code;
-      Status : SQLite3.Error_Code;
-   begin
-      SQLite3.Prepare (Handle, Insert_SQL, Stmt, Status);
-
-      if Status /= SQLite3.SQLITE_OK then
-         Natools.Web.Log
-           (Natools.Web.Severities.Error,
-            "Unable to prepare insert statement: "
-            & SQLite3.Error_Code'Image (Status)
-            & ' ' & SQLite3.Error_Message (Handle));
-         raise Constraint_Error with "Invalid SQL statement";
-      end if;
-   end Create_Stmt;
-
-
-
-   ----------------------
-   -- Public Interface --
-   ----------------------
-
-   procedure Log
-     (Request : in AWS.Status.Data;
-      Response : in AWS.Response.Data;
-      Build_Time, Export_Time : in Duration)
+   procedure Bind
+     (Stmt : in out SQLite3.SQLite3_Statement;
+      Values : in Log_Entry)
    is
       use type SQLite3.Error_Code;
 
@@ -170,23 +137,18 @@ package body Lithium.Access_Log is
          Value : in Value_Type;
          Name : in String);
 
-      procedure Bind_Header
+      procedure Bind
         (Index : in SQLite3.SQL_Parameter_Index;
+         Value : in String_Holder;
          Name : in String);
 
-      Stmt : SQLite3.SQLite3_Statement;
       Status : SQLite3.Error_Code;
-      Failed : Boolean := False;
 
       procedure Generic_Bind
         (Index : in SQLite3.SQL_Parameter_Index;
          Value : in Value_Type;
          Name : in String) is
       begin
-         if Failed then
-            return;
-         end if;
-
          SQLite3_Bind (Stmt, Index, Value, Status);
 
          if Status /= SQLite3.SQLITE_OK then
@@ -194,7 +156,7 @@ package body Lithium.Access_Log is
               (Natools.Web.Severities.Error,
                "Unable to bind " & Name & " to statement: "
                & SQLite3.Error_Code'Image (Status));
-            Failed := True;
+            raise SQLite_Error;
          end if;
       end Generic_Bind;
 
@@ -202,48 +164,62 @@ package body Lithium.Access_Log is
       procedure Bind is new Generic_Bind (Long_Integer, SQLite3.Bind);
       procedure Bind is new Generic_Bind (Interfaces.C.double, SQLite3.Bind);
 
-      Headers : constant AWS.Headers.List := AWS.Status.Header (Request);
-
-      procedure Bind_Header
+      procedure Bind
         (Index : in SQLite3.SQL_Parameter_Index;
+         Value : in String_Holder;
          Name : in String) is
       begin
-         if AWS.Headers.Exist (Headers, Name) then
-            Bind (Index, AWS.Headers.Get_Values (Headers, Name), Name);
+         if not Is_Empty (Value) then
+            Bind (Index, To_String (Value), Name);
          end if;
-      end Bind_Header;
-   begin
-      if not Initialized then
-         Initialize ("access.dat");
+      end Bind;
 
-         if not Initialized then
-            return;
-         end if;
+   begin
+      Bind (1, Values.Peer_Name, "peer name");
+      Bind (2, Values.Method, "method");
+      Bind (3, Values.Path, "path");
+      Bind (4, Values.Http_Version, "HTTP version");
+      Bind (5, Long_Integer (Values.Status_Code), "status code");
+      Bind (6, Values.Bytes, "response size");
+      Bind (7, Values.Referrer, "response size");
+      Bind (8, Values.User_Agent, "response size");
+      Bind (9, Values.Cookies, "response size");
+      Bind (10, Interfaces.C.double (Values.Build_Time), "build time");
+      Bind (11, Interfaces.C.double (Values.Export_Time), "export time");
+      Bind (12, Values.Host, "host");
+      Bind (13, Values.Real_IP, "real IP");
+      Bind (14, Values.Forwarded_For, "forwarded for");
+   end Bind;
+
+
+   procedure Initialize
+     (Handle : in out SQLite3.SQLite3_DB;
+      Name : in String)
+   is
+      use type SQLite3.Error_Code;
+      Status : SQLite3.Error_Code;
+      Stmt : SQLite3.SQLite3_Statement;
+   begin
+      SQLite3.Open (Name, Handle, Status);
+
+      if Status /= SQLite3.SQLITE_OK then
+         Natools.Web.Log
+           (Natools.Web.Severities.Critical,
+            "Unable to open """ & Name & """: "
+            & SQLite3.Error_Code'Image (Status));
+         raise SQLite_Error;
       end if;
 
-      Stmt_Pool.Get (Stmt);
+      SQLite3.Prepare (Handle, Create_SQL, Stmt, Status);
 
-      --  TODO: Read AWS.Status.Request_Time (Request)
-      Bind (1, AWS.Status.Peername (Request), "peer name");
-      Bind (2, AWS.Status.Method (Request), "method");
-      Bind (3, AWS.Status.URI (Request), "path");
-      Bind (4, AWS.Status.HTTP_Version (Request), "HTTP version");
-      Bind (5, AWS.Messages.Image (AWS.Response.Status_Code (Response)),
-        "status code");
-      Bind (6, Long_Integer (AWS.Response.Content_Length (Response)),
-        "response size");
-      Bind_Header (7, "Referer");
-      Bind_Header (8, "User-Agent");
-      Bind_Header (9, "Cookie");
-      Bind (10, Interfaces.C.double (Build_Time), "build time");
-      Bind (11, Interfaces.C.double (Export_Time), "export time");
-      Bind_Header (12, "Host");
-      Bind_Header (13, "X-Real-IP");
-      Bind_Header (14, "X-Forwarded-For");
-
-      if Failed then
-         SQLite3.Finish (Stmt, Status);
-         return;
+      if Status /= SQLite3.SQLITE_OK then
+         Natools.Web.Log
+           (Natools.Web.Severities.Error,
+            "Unable to prepare create statement: "
+            & SQLite3.Error_Code'Image (Status)
+            & ' ' & SQLite3.Error_Message (Handle));
+         SQLite3.Close (Handle, Status);
+         raise SQLite_Error;
       end if;
 
       loop
@@ -253,64 +229,220 @@ package body Lithium.Access_Log is
          if Status /= SQLite3.SQLITE_ROW then
             Natools.Web.Log
               (Natools.Web.Severities.Error,
-               "Unable to insert: " & SQLite3.Error_Code'Image (Status)
+               "Unable to create: " & SQLite3.Error_Code'Image (Status)
                & ' ' & SQLite3.Error_Message (Handle));
-            SQLite3.Finish (Stmt, Status);
-            return;
+            SQLite3.Close (Handle, Status);
+            raise SQLite_Error;
          end if;
       end loop;
 
-      SQLite3.Reset (Stmt, Status);
+      SQLite3.Finish (Stmt, Status);
 
       if Status /= SQLite3.SQLITE_OK then
          Natools.Web.Log
-           (Natools.Web.Severities.Critical,
-            "Unable to reset insert statement: "
+           (Natools.Web.Severities.Error,
+            "Unable to finish create statement: "
             & SQLite3.Error_Code'Image (Status)
             & ' ' & SQLite3.Error_Message (Handle));
-         SQLite3.Finish (Stmt, Status);
-         return;
+         SQLite3.Close (Handle, Status);
+         raise SQLite_Error;
       end if;
+   end Initialize;
 
-      SQLite3.Clear_Bindings (Stmt, Status);
 
-      if Status /= SQLite3.SQLITE_OK then
-         Natools.Web.Log
-           (Natools.Web.Severities.Critical,
-            "Unable to reset insert statement: "
-            & SQLite3.Error_Code'Image (Status)
-            & ' ' & SQLite3.Error_Message (Handle));
-         SQLite3.Finish (Stmt, Status);
-         return;
-      end if;
 
-      Stmt_Pool.Release (Stmt);
+   ----------------------
+   -- Public Interface --
+   ----------------------
+
+   procedure Log
+     (Request : in AWS.Status.Data;
+      Response : in AWS.Response.Data;
+      Build_Time, Export_Time : in Duration)
+   is
+      function Hold_Header (Name : in String) return String_Holder;
+
+      Headers : constant AWS.Headers.List := AWS.Status.Header (Request);
+
+      function Hold_Header (Name : in String) return String_Holder is
+      begin
+         if AWS.Headers.Exist (Headers, Name) then
+            return Hold (AWS.Headers.Get_Values (Headers, Name));
+         else
+            return Empty_Holder;
+         end if;
+      end Hold_Header;
+   begin
+      Queue.Append
+       ((Is_Empty => False,
+         Peer_Name => Hold (AWS.Status.Peername (Request)),
+         Method => Hold (AWS.Status.Method (Request)),
+         Path => Hold (AWS.Status.URI (Request)),
+         Http_Version => Hold (AWS.Status.HTTP_Version (Request)),
+         Status_Code => Integer'Value (AWS.Messages.Image
+           (AWS.Response.Status_Code (Response))),
+         Bytes => Long_Integer (AWS.Response.Content_Length (Response)),
+         Referrer => Hold_Header ("Referer"),
+         User_Agent => Hold_Header ("User-Agent"),
+         Cookies => Hold_Header ("Cookie"),
+         Build_Time => Build_Time,
+         Export_Time => Export_Time,
+         Host => Hold_Header ("Host"),
+         Real_IP => Hold_Header ("X-Real-IP"),
+         Forwarded_For => Hold_Header ("X-Forwarded-For")));
    end Log;
 
 
 
-   --------------------
-   -- Statement Pool --
-   --------------------
+   ---------------------
+   -- Log Entry Queue --
+   ---------------------
 
-   protected body Stmt_Pool is
+   protected body Queue is
 
-      procedure Get (Stmt : out SQLite3.SQLite3_Statement) is
+      entry Append (Values : in Log_Entry) when True is
       begin
-         if Available.Is_Empty then
-            Create_Stmt (Stmt);
+         if Task_Waiting then
+            Task_Waiting := False;
+            requeue Worker.Run;
          else
-            Stmt := Available.First_Element;
-            Available.Delete_First;
+            List.Append (Values);
          end if;
-      end Get;
+      end Append;
 
-
-      procedure Release (Stmt : out SQLite3.SQLite3_Statement) is
+      procedure Next (Values : out Extended_Log_Entry) is
       begin
-         Available.Append (Stmt);
-      end Release;
+         if List.Is_Empty then
+            Task_Waiting := True;
+            Values := (Is_Empty => True);
+         else
+            pragma Assert (not Task_Waiting);
+            Values := List.First_Element;
+            List.Delete_First;
+         end if;
+      end Next;
+   end Queue;
 
-   end Stmt_Pool;
 
+
+   -----------------
+   -- Worker Task --
+   -----------------
+
+   task body Worker is
+      use type SQLite3.Error_Code;
+      Status : SQLite3.Error_Code;
+      Current : Extended_Log_Entry;
+      Handle : SQLite3.SQLite3_DB;
+      Stmt : SQLite3.SQLite3_Statement;
+      Stmt_Ready : Boolean := False;
+   begin
+      select
+         accept Run (Values : in Log_Entry) do
+            Current := Values;
+         end Run;
+      or
+         terminate;
+      end select;
+
+      pragma Assert (not Current.Is_Empty);
+
+      Initialize (Handle, "access.dat");
+
+      Main_Loop :
+      loop
+
+         if not Stmt_Ready then
+            SQLite3.Prepare (Handle, Insert_SQL, Stmt, Status);
+
+            if Status /= SQLite3.SQLITE_OK then
+               raise SQLite_Error with
+                  "Unable to prepare insert statement: "
+                  & SQLite3.Error_Code'Image (Status)
+                  & ' ' & SQLite3.Error_Message (Handle);
+            end if;
+
+            Stmt_Ready := True;
+         end if;
+
+         SQL_Recovery :
+         begin
+            Bind (Stmt, Current);
+
+            SQL_Step :
+            loop
+               SQLite3.Step (Stmt, Status);
+               exit SQL_Step when Status = SQLite3.SQLITE_DONE;
+
+               if Status /= SQLite3.SQLITE_ROW then
+                  raise SQLite_Error with
+                     "Unable to insert: " & SQLite3.Error_Code'Image (Status)
+                     & ' ' & SQLite3.Error_Message (Handle);
+               end if;
+            end loop SQL_Step;
+
+            SQLite3.Reset (Stmt, Status);
+
+            if Status /= SQLite3.SQLITE_OK then
+               raise SQLite_Error with
+                  "Unable to reset insert statement: "
+                  & SQLite3.Error_Code'Image (Status)
+                  & ' ' & SQLite3.Error_Message (Handle);
+            end if;
+
+            SQLite3.Clear_Bindings (Stmt, Status);
+
+            if Status /= SQLite3.SQLITE_OK then
+               raise SQLite_Error with
+                  "Unable to reset insert statement: "
+                  & SQLite3.Error_Code'Image (Status)
+                  & ' ' & SQLite3.Error_Message (Handle);
+            end if;
+
+         exception
+            when Ex : SQLite_Error =>
+               Natools.Web.Log
+                 (Natools.Web.Severities.Error,
+                  Ada.Exceptions.Exception_Information (Ex));
+               SQLite3.Finish (Stmt, Status);
+               Stmt_Ready := False;
+               delay 1.0;
+         end SQL_Recovery;
+
+         if Stmt_Ready then
+            --  No error during SQLite transaction, try to get next entry
+
+            Queue.Next (Current);
+
+            if Current.Is_Empty then
+               select
+                  accept Run (Values : in Log_Entry) do
+                     Current := Values;
+                  end Run;
+               or
+                  terminate;
+               end select;
+            end if;
+         end if;
+      end loop Main_Loop;
+   exception
+      when Ex : others =>
+         if not Natools.Web."="
+           (Natools.Web.Log, Natools.Web.Default_Log'Access)
+         then
+            Natools.Web.Log
+              (Natools.Web.Severities.Critical,
+               "Exception raised in Lithium.Access_Log.Worker task");
+            Natools.Web.Log
+              (Natools.Web.Severities.Critical,
+               Ada.Exceptions.Exception_Information (Ex));
+         else
+            Ada.Text_IO.Put_Line
+              (Ada.Text_IO.Current_Error,
+               "Exception raised in Lithium.Access_Log.Worker task");
+            Ada.Text_IO.Put_Line
+              (Ada.Text_IO.Current_Error,
+               Ada.Exceptions.Exception_Information (Ex));
+         end if;
+   end Worker;
 end Lithium.Access_Log;
