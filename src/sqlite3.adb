@@ -295,4 +295,24 @@ package body SQLite3 is
    begin
       return C.To_Ada (C.Strings.Value (sqlite3_errmsg (Handle.Ptr)));
    end Error_Message;
+
+   procedure Busy_Timeout (Handle : SQLite3_DB;
+                           ms : Interfaces.C.int;
+                           Status : out Error_Code)
+   is
+      -- int sqlite3_busy_timeout
+      --       (sqlite3*,
+      --        int);
+      function sqlite3_busy_timeout (DB_Handle : DB_Private_Access;
+                                     ms : Interfaces.C.int)
+        return Interfaces.C.Int;
+      pragma Import (C, sqlite3_busy_timeout, "sqlite3_busy_timeout");
+
+      Code : Interfaces.C.Int;
+   begin
+      Code := sqlite3_busy_timeout
+        (DB_Handle => Handle.Ptr,
+         ms => ms);
+      Status := Error_Code (Code);
+   end Busy_Timeout;
 end SQLite3;

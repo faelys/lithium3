@@ -85,6 +85,10 @@ package SQLite3 is
                      Index      : SQL_Column_Index;
                      Value      : out Ada.Strings.Unbounded.Unbounded_String);
 
+   procedure Busy_Timeout (Handle : SQLite3_DB;
+                           ms : Interfaces.C.int;
+                           Status : out Error_Code);
+
    function Error_Message (Handle : SQLite3_DB) return String;
 private
    type DB_Private is null record;
