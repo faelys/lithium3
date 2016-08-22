@@ -348,6 +348,7 @@ package body Lithium.Access_Log is
       pragma Assert (not Current.Is_Empty);
 
       Initialize (Handle, "access.dat");
+      SQLite3.Busy_Timeout (Handle, 60_000, Status);
 
       Main_Loop :
       loop
