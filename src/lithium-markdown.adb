@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2017, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -19,7 +19,6 @@ with Ada.Text_IO;
 with Markup.Parsers.Markdown.Extensions;
 with Markup.Renderers.Html;
 with Natools.S_Expressions.Atom_Buffers;
-with Natools.String_Slices;
 
 package body Lithium.Markdown is
 
@@ -195,6 +194,26 @@ package body Lithium.Markdown is
                end Export_Summary;
             end Render;
          or
+            accept Render
+              (Source : in Natools.String_Slices.Slice;
+               Output : out Sx.Atom_Refs.Immutable_Reference;
+               Summary : out Sx.Atom_Refs.Immutable_Reference)
+            do
+               Parser.Process (Source);
+
+               Output := Export (Parsed.all);
+
+               declare
+                  use type Sx.Count;
+               begin
+                  if Summary_Buf.Length > 0 then
+                     Summary := Export (Summary_Buf.all);
+                  else
+                     Summary := Sx.Atom_Refs.Null_Immutable_Reference;
+                  end if;
+               end;
+            end Render;
+         or
             terminate;
          end select;
       end loop;
@@ -271,6 +290,14 @@ package body Lithium.Markdown is
                Parser.Process
                  (Natools.String_Slices.To_Slice (Sx.To_String (Buffer.Data)));
 
+               Output := Export (Parsed.all);
+            end Render;
+         or
+            accept Render
+              (Source : in Natools.String_Slices.Slice;
+               Output : out Sx.Atom_Refs.Immutable_Reference)
+            do
+               Parser.Process (Source);
                Output := Export (Parsed.all);
             end Render;
          or

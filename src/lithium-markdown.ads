@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2017, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -20,6 +20,7 @@
 
 with Ada.Streams;
 with Natools.S_Expressions.Atom_Refs;
+with Natools.String_Slices;
 
 package Lithium.Markdown is
 
@@ -28,11 +29,18 @@ package Lithium.Markdown is
         (Source : in out Ada.Streams.Root_Stream_Type'Class;
          Output : out Natools.S_Expressions.Atom_Refs.Immutable_Reference;
          Summary : out Natools.S_Expressions.Atom_Refs.Immutable_Reference);
+      entry Render
+        (Source : in Natools.String_Slices.Slice;
+         Output : out Natools.S_Expressions.Atom_Refs.Immutable_Reference;
+         Summary : out Natools.S_Expressions.Atom_Refs.Immutable_Reference);
    end Extended;
 
    task Comment is
       entry Render
         (Source : in out Ada.Streams.Root_Stream_Type'Class;
+         Output : out Natools.S_Expressions.Atom_Refs.Immutable_Reference);
+      entry Render
+        (Source : in Natools.String_Slices.Slice;
          Output : out Natools.S_Expressions.Atom_Refs.Immutable_Reference);
    end Comment;
 
