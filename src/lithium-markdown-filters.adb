@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2017, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -15,35 +15,31 @@
 ------------------------------------------------------------------------------
 
 with Natools.S_Expressions.Atom_Refs;
+with Natools.String_Slices;
 
 package body Lithium.Markdown.Filters is
 
-   overriding procedure Read
-     (Stream : in out Memory_Stream;
-      Item : out Ada.Streams.Stream_Element_Array;
-      Last : out Ada.Streams.Stream_Element_Offset)
+   function To_Slice (Data : in Ada.Streams.Stream_Element_Array)
+     return Natools.String_Slices.Slice;
+
+
+   function To_Slice (Data : in Ada.Streams.Stream_Element_Array)
+     return Natools.String_Slices.Slice
    is
-      use type Ada.Streams.Stream_Element_Offset;
+      procedure Initialize (S : out String);
 
-      Size : constant Ada.Streams.Stream_Element_Count
-        := Ada.Streams.Stream_Element_Count'Min
-           (Item'Length, Stream.Size - Stream.Cursor);
+      procedure Initialize (S : out String) is
+         O : Natural := S'First - 1;
+      begin
+         for I in Data'Range loop
+            O := O + 1;
+            S (O) := Character'Val (Data (I));
+         end loop;
+      end Initialize;
    begin
-      Last := Item'First + Size - 1;
-      Item (Item'First .. Last)
-        := Stream.Data (Stream.Cursor + 1 .. Stream.Cursor + Size);
-      Stream.Cursor := Stream.Cursor + Size;
-   end Read;
-
-
-   overriding procedure Write
-     (Stream : in out Memory_Stream;
-      Item : in Ada.Streams.Stream_Element_Array)
-   is
-      pragma Unreferenced (Stream, Item);
-   begin
-      raise Program_Error with "Cannot write to memory stream";
-   end Write;
+      return Natools.String_Slices.New_Slice
+        (1, Data'Length, Initialize'Access);
+   end To_Slice;
 
 
 
@@ -54,12 +50,9 @@ package body Lithium.Markdown.Filters is
    is
       pragma Unreferenced (Object);
 
-      Stream : Memory_Stream
-        := (Ada.Streams.Root_Stream_Type with
-            Size => Data'Length, Data => Data, Cursor => 0);
       Rendered, Summary : Natools.S_Expressions.Atom_Refs.Immutable_Reference;
    begin
-      Lithium.Markdown.Extended.Render (Stream, Rendered, Summary);
+      Lithium.Markdown.Extended.Render (To_Slice (Data), Rendered, Summary);
       Output.Write (Rendered.Query);
    end Apply;
 
@@ -82,12 +75,9 @@ package body Lithium.Markdown.Filters is
    is
       pragma Unreferenced (Object);
 
-      Stream : Memory_Stream
-        := (Ada.Streams.Root_Stream_Type with
-            Size => Data'Length, Data => Data, Cursor => 0);
       Rendered : Natools.S_Expressions.Atom_Refs.Immutable_Reference;
    begin
-      Lithium.Markdown.Comment.Render (Stream, Rendered);
+      Lithium.Markdown.Comment.Render (To_Slice (Data), Rendered);
       Output.Write (Rendered.Query);
    end Apply;
 

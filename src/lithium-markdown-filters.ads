@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2017, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -24,19 +24,6 @@ with Natools.S_Expressions.Lockable;
 with Natools.Web.Filters;
 
 package Lithium.Markdown.Filters is
-
-   type Memory_Stream (<>) is new Ada.Streams.Root_Stream_Type with private;
-
-   overriding procedure Read
-     (Stream : in out Memory_Stream;
-      Item : out Ada.Streams.Stream_Element_Array;
-      Last : out Ada.Streams.Stream_Element_Offset);
-
-   overriding procedure Write
-     (Stream : in out Memory_Stream;
-      Item : in Ada.Streams.Stream_Element_Array);
-
-
 
    type Extended is new Natools.Web.Filters.Filter with private;
 
@@ -63,12 +50,6 @@ package Lithium.Markdown.Filters is
      return Natools.Web.Filters.Filter'Class;
 
 private
-
-   type Memory_Stream (Size : Ada.Streams.Stream_Element_Count)
-     is new Ada.Streams.Root_Stream_Type with record
-      Data : Ada.Streams.Stream_Element_Array (1 .. Size);
-      Cursor : Ada.Streams.Stream_Element_Offset := 0;
-   end record;
 
    type Extended is new Natools.Web.Filters.Filter with null record;
    type Comment is new Natools.Web.Filters.Filter with null record;
