@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2017, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -25,6 +25,11 @@ with Natools.S_Expressions.Parsers;
 
 package Lithium.Line_Parsers is
    pragma Preelaborate;
+
+   procedure Append_Line
+     (Line : in out Natools.S_Expressions.Atom_Buffers.Atom_Buffer;
+      Source : in out Ada.Streams.Root_Stream_Type'Class;
+      Finished : out Boolean);
 
    type Parser (Source : access Ada.Streams.Root_Stream_Type'Class)
      is limited new Natools.S_Expressions.Parsers.Parser with private;

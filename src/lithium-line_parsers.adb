@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2017, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -16,24 +16,38 @@
 
 package body Lithium.Line_Parsers is
 
+   procedure Append_Line
+     (Line : in out Natools.S_Expressions.Atom_Buffers.Atom_Buffer;
+      Source : in out Ada.Streams.Root_Stream_Type'Class;
+      Finished : out Boolean)
+   is
+      Buffer : Ada.Streams.Stream_Element_Array (1 .. 1);
+      Last : Ada.Streams.Stream_Element_Offset;
+   begin
+      Finished := False;
+
+      loop
+         Source.Read (Buffer, Last);
+
+         if Last not in Buffer'Range then
+            Finished := True;
+            exit;
+         end if;
+
+         Line.Append (Buffer (Last));
+
+         exit when Buffer (Last) in 10 | 13;
+      end loop;
+   end Append_Line;
+
+
    overriding procedure Read_More
      (Self : in out Parser;
       Buffer : out Natools.S_Expressions.Atom_Buffers.Atom_Buffer)
    is
-      Item : Ada.Streams.Stream_Element_Array (1 .. 1);
-      Last : Ada.Streams.Stream_Element_Offset;
+      Finished : Boolean;
    begin
-      loop
-         Self.Source.Read (Item, Last);
-
-         if Last not in Item'Range then
-            return;
-         end if;
-
-         Buffer.Append (Item);
-
-         exit when Item (1) in 10 | 13;
-      end loop;
+      Append_Line (Buffer, Self.Source.all, Finished);
    end Read_More;
 
 end Lithium.Line_Parsers;
