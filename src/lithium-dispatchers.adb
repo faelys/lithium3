@@ -22,6 +22,7 @@ with Natools.Web.Filters.Pass_Through;
 with Natools.Web.Filters.Text_Blocks;
 with Natools.Web.Reload_Pages;
 with Natools.Web.Simple_Pages.Markdown_Pages;
+with Natools.Web.Simple_Pages.Markdown_Multipages;
 with Natools.Web.Tag_Pages;
 
 with Lithium.Access_Log;
@@ -69,6 +70,9 @@ package body Lithium.Dispatchers is
       Holder.Register
         ("markdown-page",
          Natools.Web.Simple_Pages.Markdown_Pages.Create'Access);
+      Holder.Register
+        ("markdown-multipage",
+         Natools.Web.Simple_Pages.Markdown_Multipages.Create'Access);
       Holder.Register
         ("reload-page", Natools.Web.Reload_Pages.Create'Access);
       Holder.Register
