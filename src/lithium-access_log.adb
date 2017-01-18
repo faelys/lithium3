@@ -42,24 +42,23 @@ package body Lithium.Access_Log is
    Empty_Holder : constant String_Holder
      := Ada.Strings.Unbounded.Null_Unbounded_String;
 
+   package String_Tables is
+      type Enum is
+        (Peer_Name, Method, Path, Http_Version, Referrer,
+         User_Agent, Cookies, Host, Real_IP, Forwarded_For);
+   end String_Tables;
+
+   type Holder_Array is array (String_Tables.Enum) of String_Holder;
+
    type Extended_Log_Entry (Is_Empty : Boolean := True) is record
       case Is_Empty is
          when True => null;
          when False =>
-            Peer_Name : String_Holder;
-            Method : String_Holder;
-            Path : String_Holder;
-            Http_Version : String_Holder;
+            Strings : Holder_Array;
             Status_Code : Integer;
             Bytes : Long_Integer;
-            Referrer : String_Holder;
-            User_Agent : String_Holder;
-            Cookies : String_Holder;
             Build_Time : Duration;
             Export_Time : Duration;
-            Host : String_Holder;
-            Real_IP : String_Holder;
-            Forwarded_For : String_Holder;
       end case;
    end record;
 
@@ -174,21 +173,22 @@ package body Lithium.Access_Log is
          end if;
       end Bind;
 
+      use String_Tables;
    begin
-      Bind (1, Values.Peer_Name, "peer name");
-      Bind (2, Values.Method, "method");
-      Bind (3, Values.Path, "path");
-      Bind (4, Values.Http_Version, "HTTP version");
+      Bind (1, Values.Strings (Peer_Name), "peer name");
+      Bind (2, Values.Strings (Method), "method");
+      Bind (3, Values.Strings (Path), "path");
+      Bind (4, Values.Strings (Http_Version), "HTTP version");
       Bind (5, Long_Integer (Values.Status_Code), "status code");
       Bind (6, Values.Bytes, "response size");
-      Bind (7, Values.Referrer, "response size");
-      Bind (8, Values.User_Agent, "response size");
-      Bind (9, Values.Cookies, "response size");
+      Bind (7, Values.Strings (Referrer), "response size");
+      Bind (8, Values.Strings (User_Agent), "response size");
+      Bind (9, Values.Strings (Cookies), "response size");
       Bind (10, Interfaces.C.double (Values.Build_Time), "build time");
       Bind (11, Interfaces.C.double (Values.Export_Time), "export time");
-      Bind (12, Values.Host, "host");
-      Bind (13, Values.Real_IP, "real IP");
-      Bind (14, Values.Forwarded_For, "forwarded for");
+      Bind (12, Values.Strings (Host), "host");
+      Bind (13, Values.Strings (Real_IP), "real IP");
+      Bind (14, Values.Strings (Forwarded_For), "forwarded for");
    end Bind;
 
 
@@ -272,24 +272,27 @@ package body Lithium.Access_Log is
             return Empty_Holder;
          end if;
       end Hold_Header;
+
+      use String_Tables;
    begin
       Queue.Append
        ((Is_Empty => False,
-         Peer_Name => Hold (AWS.Status.Peername (Request)),
-         Method => Hold (AWS.Status.Method (Request)),
-         Path => Hold (AWS.Status.URI (Request)),
-         Http_Version => Hold (AWS.Status.HTTP_Version (Request)),
+         Strings =>
+           (Peer_Name => Hold (AWS.Status.Peername (Request)),
+            Method => Hold (AWS.Status.Method (Request)),
+            Path => Hold (AWS.Status.URI (Request)),
+            Http_Version => Hold (AWS.Status.HTTP_Version (Request)),
+            Referrer => Hold_Header ("Referer"),
+            User_Agent => Hold_Header ("User-Agent"),
+            Cookies => Hold_Header ("Cookie"),
+            Host => Hold_Header ("Host"),
+            Real_IP => Hold_Header ("X-Real-IP"),
+            Forwarded_For => Hold_Header ("X-Forwarded-For")),
          Status_Code => Integer'Value (AWS.Messages.Image
            (AWS.Response.Status_Code (Response))),
          Bytes => Long_Integer (AWS.Response.Content_Length (Response)),
-         Referrer => Hold_Header ("Referer"),
-         User_Agent => Hold_Header ("User-Agent"),
-         Cookies => Hold_Header ("Cookie"),
          Build_Time => Build_Time,
-         Export_Time => Export_Time,
-         Host => Hold_Header ("Host"),
-         Real_IP => Hold_Header ("X-Real-IP"),
-         Forwarded_For => Hold_Header ("X-Forwarded-For")));
+         Export_Time => Export_Time));
    end Log;
 
 
