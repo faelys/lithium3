@@ -99,6 +99,13 @@ package body Lithium.Access_Log is
      (Handle : in out SQLite3.SQLite3_DB;
       Name : in String);
 
+   procedure Run_SQL
+     (Handle : in SQLite3.SQLite3_DB;
+      Stmt : in out SQLite3.SQLite3_Statement;
+      Stmt_Ready : in out Boolean;
+      Input : in Log_Entry;
+      SQL_String : in String);
+
 
    protected Queue is
       entry Append (Values : in Log_Entry);
@@ -250,6 +257,75 @@ package body Lithium.Access_Log is
    end Initialize;
 
 
+   procedure Run_SQL
+     (Handle : in SQLite3.SQLite3_DB;
+      Stmt : in out SQLite3.SQLite3_Statement;
+      Stmt_Ready : in out Boolean;
+      Input : in Log_Entry;
+      SQL_String : in String)
+   is
+      use type SQLite3.Error_Code;
+      Status : SQLite3.Error_Code;
+   begin
+      if not Stmt_Ready then
+         SQLite3.Prepare (Handle, SQL_String, Stmt, Status);
+
+         if Status /= SQLite3.SQLITE_OK then
+            raise SQLite_Error with
+               "Unable to prepare insert statement: "
+               & SQLite3.Error_Code'Image (Status)
+               & ' ' & SQLite3.Error_Message (Handle);
+         end if;
+
+         Stmt_Ready := True;
+      end if;
+
+      SQL_Recovery :
+      begin
+         Bind (Stmt, Input);
+
+         SQL_Step :
+         loop
+            SQLite3.Step (Stmt, Status);
+            exit SQL_Step when Status = SQLite3.SQLITE_DONE;
+
+            if Status /= SQLite3.SQLITE_ROW then
+               raise SQLite_Error with
+                  "Unable to insert: " & SQLite3.Error_Code'Image (Status)
+                  & ' ' & SQLite3.Error_Message (Handle);
+            end if;
+         end loop SQL_Step;
+
+         SQLite3.Reset (Stmt, Status);
+
+         if Status /= SQLite3.SQLITE_OK then
+            raise SQLite_Error with
+               "Unable to reset insert statement: "
+               & SQLite3.Error_Code'Image (Status)
+               & ' ' & SQLite3.Error_Message (Handle);
+         end if;
+
+         SQLite3.Clear_Bindings (Stmt, Status);
+
+         if Status /= SQLite3.SQLITE_OK then
+            raise SQLite_Error with
+               "Unable to reset insert statement: "
+               & SQLite3.Error_Code'Image (Status)
+               & ' ' & SQLite3.Error_Message (Handle);
+         end if;
+
+      exception
+         when Ex : SQLite_Error =>
+            Natools.Web.Log
+              (Natools.Web.Severities.Error,
+               Ada.Exceptions.Exception_Information (Ex));
+            SQLite3.Finish (Stmt, Status);
+            Stmt_Ready := False;
+            delay 1.0;
+      end SQL_Recovery;
+   end Run_SQL;
+
+
 
    ----------------------
    -- Public Interface --
@@ -355,63 +431,7 @@ package body Lithium.Access_Log is
 
       Main_Loop :
       loop
-
-         if not Stmt_Ready then
-            SQLite3.Prepare (Handle, Insert_SQL, Stmt, Status);
-
-            if Status /= SQLite3.SQLITE_OK then
-               raise SQLite_Error with
-                  "Unable to prepare insert statement: "
-                  & SQLite3.Error_Code'Image (Status)
-                  & ' ' & SQLite3.Error_Message (Handle);
-            end if;
-
-            Stmt_Ready := True;
-         end if;
-
-         SQL_Recovery :
-         begin
-            Bind (Stmt, Current);
-
-            SQL_Step :
-            loop
-               SQLite3.Step (Stmt, Status);
-               exit SQL_Step when Status = SQLite3.SQLITE_DONE;
-
-               if Status /= SQLite3.SQLITE_ROW then
-                  raise SQLite_Error with
-                     "Unable to insert: " & SQLite3.Error_Code'Image (Status)
-                     & ' ' & SQLite3.Error_Message (Handle);
-               end if;
-            end loop SQL_Step;
-
-            SQLite3.Reset (Stmt, Status);
-
-            if Status /= SQLite3.SQLITE_OK then
-               raise SQLite_Error with
-                  "Unable to reset insert statement: "
-                  & SQLite3.Error_Code'Image (Status)
-                  & ' ' & SQLite3.Error_Message (Handle);
-            end if;
-
-            SQLite3.Clear_Bindings (Stmt, Status);
-
-            if Status /= SQLite3.SQLITE_OK then
-               raise SQLite_Error with
-                  "Unable to reset insert statement: "
-                  & SQLite3.Error_Code'Image (Status)
-                  & ' ' & SQLite3.Error_Message (Handle);
-            end if;
-
-         exception
-            when Ex : SQLite_Error =>
-               Natools.Web.Log
-                 (Natools.Web.Severities.Error,
-                  Ada.Exceptions.Exception_Information (Ex));
-               SQLite3.Finish (Stmt, Status);
-               Stmt_Ready := False;
-               delay 1.0;
-         end SQL_Recovery;
+         Run_SQL (Handle, Stmt, Stmt_Ready, Current, Insert_SQL);
 
          if Stmt_Ready then
             --  No error during SQLite transaction, try to get next entry
