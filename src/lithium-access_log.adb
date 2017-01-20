@@ -105,6 +105,7 @@ package body Lithium.Access_Log is
       Stmt_Ready : in out Boolean;
       Input : in Log_Entry;
       SQL_String : in String);
+      --  Run one attempt of the given statement and handle errors
 
 
    protected Queue is
@@ -266,63 +267,75 @@ package body Lithium.Access_Log is
    is
       use type SQLite3.Error_Code;
       Status : SQLite3.Error_Code;
+      Retry_Left : Natural := 16;
    begin
-      if not Stmt_Ready then
-         SQLite3.Prepare (Handle, SQL_String, Stmt, Status);
+      Retry_Loop :
+      loop
+         if not Stmt_Ready then
+            SQLite3.Prepare (Handle, SQL_String, Stmt, Status);
 
-         if Status /= SQLite3.SQLITE_OK then
-            raise SQLite_Error with
-               "Unable to prepare insert statement: "
-               & SQLite3.Error_Code'Image (Status)
-               & ' ' & SQLite3.Error_Message (Handle);
-         end if;
-
-         Stmt_Ready := True;
-      end if;
-
-      SQL_Recovery :
-      begin
-         Bind (Stmt, Input);
-
-         SQL_Step :
-         loop
-            SQLite3.Step (Stmt, Status);
-            exit SQL_Step when Status = SQLite3.SQLITE_DONE;
-
-            if Status /= SQLite3.SQLITE_ROW then
+            if Status /= SQLite3.SQLITE_OK then
                raise SQLite_Error with
-                  "Unable to insert: " & SQLite3.Error_Code'Image (Status)
+                  "Unable to prepare insert statement: "
+                  & SQLite3.Error_Code'Image (Status)
                   & ' ' & SQLite3.Error_Message (Handle);
             end if;
-         end loop SQL_Step;
 
-         SQLite3.Reset (Stmt, Status);
-
-         if Status /= SQLite3.SQLITE_OK then
-            raise SQLite_Error with
-               "Unable to reset insert statement: "
-               & SQLite3.Error_Code'Image (Status)
-               & ' ' & SQLite3.Error_Message (Handle);
+            Stmt_Ready := True;
          end if;
 
-         SQLite3.Clear_Bindings (Stmt, Status);
+         Run_Statement :
+         begin
+            Bind (Stmt, Input);
 
-         if Status /= SQLite3.SQLITE_OK then
-            raise SQLite_Error with
-               "Unable to reset insert statement: "
-               & SQLite3.Error_Code'Image (Status)
-               & ' ' & SQLite3.Error_Message (Handle);
-         end if;
+            SQL_Step :
+            loop
+               SQLite3.Step (Stmt, Status);
+               exit SQL_Step when Status = SQLite3.SQLITE_DONE;
 
-      exception
-         when Ex : SQLite_Error =>
-            Natools.Web.Log
-              (Natools.Web.Severities.Error,
-               Ada.Exceptions.Exception_Information (Ex));
-            SQLite3.Finish (Stmt, Status);
-            Stmt_Ready := False;
-            delay 1.0;
-      end SQL_Recovery;
+               if Status /= SQLite3.SQLITE_ROW then
+                  raise SQLite_Error with
+                     "Unable to insert: " & SQLite3.Error_Code'Image (Status)
+                     & ' ' & SQLite3.Error_Message (Handle);
+               end if;
+            end loop SQL_Step;
+
+            SQLite3.Reset (Stmt, Status);
+
+            if Status /= SQLite3.SQLITE_OK then
+               raise SQLite_Error with
+                  "Unable to reset insert statement: "
+                  & SQLite3.Error_Code'Image (Status)
+                  & ' ' & SQLite3.Error_Message (Handle);
+            end if;
+
+            SQLite3.Clear_Bindings (Stmt, Status);
+
+            if Status /= SQLite3.SQLITE_OK then
+               raise SQLite_Error with
+                  "Unable to reset insert statement: "
+                  & SQLite3.Error_Code'Image (Status)
+                  & ' ' & SQLite3.Error_Message (Handle);
+            end if;
+
+         exception
+            when Ex : SQLite_Error =>
+               Natools.Web.Log
+                 (Natools.Web.Severities.Error,
+                  Ada.Exceptions.Exception_Information (Ex));
+               SQLite3.Finish (Stmt, Status);
+               Stmt_Ready := False;
+
+               Retry_Left := Retry_Left - 1;
+               if Retry_Left > 0 then
+                  delay 1.0;
+               else
+                  raise;
+               end if;
+         end Run_Statement;
+
+         exit Retry_Loop when Stmt_Ready;
+      end loop Retry_Loop;
    end Run_SQL;
 
 
@@ -433,20 +446,16 @@ package body Lithium.Access_Log is
       loop
          Run_SQL (Handle, Stmt, Stmt_Ready, Current, Insert_SQL);
 
-         if Stmt_Ready then
-            --  No error during SQLite transaction, try to get next entry
+         Queue.Next (Current);
 
-            Queue.Next (Current);
-
-            if Current.Is_Empty then
-               select
-                  accept Run (Values : in Log_Entry) do
-                     Current := Values;
-                  end Run;
-               or
-                  terminate;
-               end select;
-            end if;
+         if Current.Is_Empty then
+            select
+               accept Run (Values : in Log_Entry) do
+                  Current := Values;
+               end Run;
+            or
+               terminate;
+            end select;
          end if;
       end loop Main_Loop;
    exception
