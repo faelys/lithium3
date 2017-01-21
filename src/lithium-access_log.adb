@@ -99,11 +99,16 @@ package body Lithium.Access_Log is
      (Handle : in out SQLite3.SQLite3_DB;
       Name : in String);
 
+   generic
+      type Input_Type (<>) is limited private;
+      with procedure Bind
+        (Stmt : in out SQLite3.SQLite3_Statement;
+         Input : in Input_Type) is <>;
    procedure Run_SQL
      (Handle : in SQLite3.SQLite3_DB;
       Stmt : in out SQLite3.SQLite3_Statement;
       Stmt_Ready : in out Boolean;
-      Input : in Log_Entry;
+      Input : in Input_Type;
       SQL_String : in String);
       --  Run one attempt of the given statement and handle errors
 
@@ -262,7 +267,7 @@ package body Lithium.Access_Log is
      (Handle : in SQLite3.SQLite3_DB;
       Stmt : in out SQLite3.SQLite3_Statement;
       Stmt_Ready : in out Boolean;
-      Input : in Log_Entry;
+      Input : in Input_Type;
       SQL_String : in String)
    is
       use type SQLite3.Error_Code;
@@ -421,6 +426,8 @@ package body Lithium.Access_Log is
    -- Worker Task --
    -----------------
 
+   procedure Run_SQL_Main is new Run_SQL (Log_Entry);
+
    task body Worker is
       use type SQLite3.Error_Code;
       Status : SQLite3.Error_Code;
@@ -444,7 +451,7 @@ package body Lithium.Access_Log is
 
       Main_Loop :
       loop
-         Run_SQL (Handle, Stmt, Stmt_Ready, Current, Insert_SQL);
+         Run_SQL_Main (Handle, Stmt, Stmt_Ready, Current, Insert_SQL);
 
          Queue.Next (Current);
 
