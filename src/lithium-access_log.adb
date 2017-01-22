@@ -109,7 +109,8 @@ package body Lithium.Access_Log is
       Stmt : in out SQLite3.SQLite3_Statement;
       Stmt_Ready : in out Boolean;
       Input : in Input_Type;
-      SQL_String : in String);
+      SQL_String : in String;
+      Name : in String);
       --  Run one attempt of the given statement and handle errors
 
 
@@ -268,7 +269,8 @@ package body Lithium.Access_Log is
       Stmt : in out SQLite3.SQLite3_Statement;
       Stmt_Ready : in out Boolean;
       Input : in Input_Type;
-      SQL_String : in String)
+      SQL_String : in String;
+      Name : in String)
    is
       use type SQLite3.Error_Code;
       Status : SQLite3.Error_Code;
@@ -281,7 +283,7 @@ package body Lithium.Access_Log is
 
             if Status /= SQLite3.SQLITE_OK then
                raise SQLite_Error with
-                  "Unable to prepare insert statement: "
+                  "Unable to prepare " & Name & " statement: "
                   & SQLite3.Error_Code'Image (Status)
                   & ' ' & SQLite3.Error_Message (Handle);
             end if;
@@ -300,7 +302,8 @@ package body Lithium.Access_Log is
 
                if Status /= SQLite3.SQLITE_ROW then
                   raise SQLite_Error with
-                     "Unable to insert: " & SQLite3.Error_Code'Image (Status)
+                     "Unable to run " & Name & ": "
+                     & SQLite3.Error_Code'Image (Status)
                      & ' ' & SQLite3.Error_Message (Handle);
                end if;
             end loop SQL_Step;
@@ -309,7 +312,7 @@ package body Lithium.Access_Log is
 
             if Status /= SQLite3.SQLITE_OK then
                raise SQLite_Error with
-                  "Unable to reset insert statement: "
+                  "Unable to reset " & Name & " statement: "
                   & SQLite3.Error_Code'Image (Status)
                   & ' ' & SQLite3.Error_Message (Handle);
             end if;
@@ -318,7 +321,7 @@ package body Lithium.Access_Log is
 
             if Status /= SQLite3.SQLITE_OK then
                raise SQLite_Error with
-                  "Unable to reset insert statement: "
+                  "Unable to reset " & Name & " statement: "
                   & SQLite3.Error_Code'Image (Status)
                   & ' ' & SQLite3.Error_Message (Handle);
             end if;
@@ -451,7 +454,8 @@ package body Lithium.Access_Log is
 
       Main_Loop :
       loop
-         Run_SQL_Main (Handle, Stmt, Stmt_Ready, Current, Insert_SQL);
+         Run_SQL_Main
+           (Handle, Stmt, Stmt_Ready, Current, Insert_SQL, "insert");
 
          Queue.Next (Current);
 
