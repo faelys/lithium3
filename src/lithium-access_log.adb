@@ -99,6 +99,13 @@ package body Lithium.Access_Log is
      (Handle : in out SQLite3.SQLite3_DB;
       Name : in String);
 
+   procedure Run_Simple_SQL
+     (Handle : in SQLite3.SQLite3_DB;
+      SQL_String : in String;
+      Name : in String);
+      --  Run a simple one-time SQL query, without error handling
+      --  besides throwing SQLite_Error exceptions.
+
    generic
       type Input_Type (<>) is limited private;
       with procedure Bind
@@ -212,7 +219,6 @@ package body Lithium.Access_Log is
    is
       use type SQLite3.Error_Code;
       Status : SQLite3.Error_Code;
-      Stmt : SQLite3.SQLite3_Statement;
    begin
       SQLite3.Open (Name, Handle, Status);
 
@@ -224,15 +230,34 @@ package body Lithium.Access_Log is
          raise SQLite_Error;
       end if;
 
-      SQLite3.Prepare (Handle, Create_SQL, Stmt, Status);
+      Create_Tables :
+      begin
+         Run_Simple_SQL (Handle, Create_SQL, "create");
+      exception
+         when SQLite_Error =>
+            SQLite3.Close (Handle, Status);
+            raise;
+      end Create_Tables;
+   end Initialize;
+
+
+   procedure Run_Simple_SQL
+     (Handle : in SQLite3.SQLite3_DB;
+      SQL_String : in String;
+      Name : in String)
+   is
+      use type SQLite3.Error_Code;
+      Status : SQLite3.Error_Code;
+      Stmt : SQLite3.SQLite3_Statement;
+   begin
+      SQLite3.Prepare (Handle, SQL_String, Stmt, Status);
 
       if Status /= SQLite3.SQLITE_OK then
          Natools.Web.Log
            (Natools.Web.Severities.Error,
-            "Unable to prepare create statement: "
+            "Unable to prepare " & Name & " statement: "
             & SQLite3.Error_Code'Image (Status)
             & ' ' & SQLite3.Error_Message (Handle));
-         SQLite3.Close (Handle, Status);
          raise SQLite_Error;
       end if;
 
@@ -243,9 +268,9 @@ package body Lithium.Access_Log is
          if Status /= SQLite3.SQLITE_ROW then
             Natools.Web.Log
               (Natools.Web.Severities.Error,
-               "Unable to create: " & SQLite3.Error_Code'Image (Status)
+               "Unable to run " & Name & ": "
+               & SQLite3.Error_Code'Image (Status)
                & ' ' & SQLite3.Error_Message (Handle));
-            SQLite3.Close (Handle, Status);
             raise SQLite_Error;
          end if;
       end loop;
@@ -255,13 +280,12 @@ package body Lithium.Access_Log is
       if Status /= SQLite3.SQLITE_OK then
          Natools.Web.Log
            (Natools.Web.Severities.Error,
-            "Unable to finish create statement: "
+            "Unable to finish " & Name & " statement: "
             & SQLite3.Error_Code'Image (Status)
             & ' ' & SQLite3.Error_Message (Handle));
-         SQLite3.Close (Handle, Status);
          raise SQLite_Error;
       end if;
-   end Initialize;
+   end Run_Simple_SQL;
 
 
    procedure Run_SQL
