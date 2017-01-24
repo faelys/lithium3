@@ -120,6 +120,9 @@ package body Lithium.Access_Log is
       Name : in String);
       --  Run one attempt of the given statement and handle errors
 
+   function Table_Name (T : in String_Tables.Enum) return String;
+      --  Return the SQL table name associated with T
+
 
    protected Queue is
       entry Append (Values : in Log_Entry);
@@ -232,7 +235,15 @@ package body Lithium.Access_Log is
 
       Create_Tables :
       begin
-         Run_Simple_SQL (Handle, Create_SQL, "create");
+         Run_Simple_SQL (Handle, Create_SQL, "main create");
+
+         for T in String_Tables.Enum loop
+            Run_Simple_SQL
+              (Handle,
+               "CREATE TABLE IF NOT EXISTS " & Table_Name (T)
+                 & " (value TEXT PRIMARY KEY);",
+               Table_Name (T) & " create");
+         end loop;
       exception
          when SQLite_Error =>
             SQLite3.Close (Handle, Status);
@@ -369,6 +380,24 @@ package body Lithium.Access_Log is
          exit Retry_Loop when Stmt_Ready;
       end loop Retry_Loop;
    end Run_SQL;
+
+
+   function Table_Name (T : in String_Tables.Enum) return String is
+      use String_Tables;
+   begin
+      case T is
+         when Peer_Name =>     return "peer_names";
+         when Method =>        return "methods";
+         when Path =>          return "paths";
+         when Http_Version =>  return "http_versions";
+         when Referrer =>      return "referrers";
+         when User_Agent =>    return "user_agents";
+         when Cookies =>       return "cookies";
+         when Host =>          return "hosts";
+         when Real_IP =>       return "real_ips";
+         when Forwarded_For => return "forwarded_fors";
+      end case;
+   end Table_Name;
 
 
 
