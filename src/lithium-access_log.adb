@@ -94,6 +94,12 @@ package body Lithium.Access_Log is
    procedure Bind
      (Stmt : in out SQLite3.SQLite3_Statement;
       Values : in Log_Entry);
+      --  Bind a log entry to the main insert statement
+
+   procedure Bind
+     (Stmt : in out SQLite3.SQLite3_Statement;
+      Value : in String);
+      --  Bind a string value to a table-specific insert statement
 
    procedure Initialize
      (Handle : in out SQLite3.SQLite3_DB;
@@ -213,6 +219,25 @@ package body Lithium.Access_Log is
       Bind (12, Values.Strings (Host), "host");
       Bind (13, Values.Strings (Real_IP), "real IP");
       Bind (14, Values.Strings (Forwarded_For), "forwarded for");
+   end Bind;
+
+
+   procedure Bind
+     (Stmt : in out SQLite3.SQLite3_Statement;
+      Value : in String)
+   is
+      use type SQLite3.Error_Code;
+      Status : SQLite3.Error_Code;
+   begin
+      SQLite3.Bind (Stmt, 1, Value, Status);
+
+      if Status /= SQLite3.SQLITE_OK then
+         Natools.Web.Log
+           (Natools.Web.Severities.Error,
+            "Unable to bind string value to statement: "
+            & SQLite3.Error_Code'Image (Status));
+         raise SQLite_Error;
+      end if;
    end Bind;
 
 
@@ -484,6 +509,8 @@ package body Lithium.Access_Log is
 
    procedure Run_SQL_Main is new Run_SQL (Log_Entry);
 
+   procedure Run_SQL_String is new Run_SQL (String);
+
    task body Worker is
       use type SQLite3.Error_Code;
       Status : SQLite3.Error_Code;
@@ -491,6 +518,9 @@ package body Lithium.Access_Log is
       Handle : SQLite3.SQLite3_DB;
       Stmt : SQLite3.SQLite3_Statement;
       Stmt_Ready : Boolean := False;
+      String_Stmt : array (String_Tables.Enum) of SQLite3.SQLite3_Statement;
+      String_Stmt_Ready : array (String_Tables.Enum) of Boolean
+        := (others => False);
    begin
       select
          accept Run (Values : in Log_Entry) do
@@ -507,8 +537,19 @@ package body Lithium.Access_Log is
 
       Main_Loop :
       loop
+         Run_String_Inserts :
+         for T in String_Tables.Enum loop
+            Run_SQL_String
+              (Handle,
+               String_Stmt (T),
+               String_Stmt_Ready (T),
+               To_String (Current.Strings (T)),
+               "INSERT OR IGNORE INTO " & Table_Name (T) & " VALUES (?1);",
+               Table_Name (T) & " insert");
+         end loop Run_String_Inserts;
+
          Run_SQL_Main
-           (Handle, Stmt, Stmt_Ready, Current, Insert_SQL, "insert");
+           (Handle, Stmt, Stmt_Ready, Current, Insert_SQL, "main insert");
 
          Queue.Next (Current);
 
