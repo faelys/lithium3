@@ -20,6 +20,7 @@ with Natools.Web.Escapes.Filters;
 with Natools.Web.Exchanges;
 with Natools.Web.Filters.Pass_Through;
 with Natools.Web.Filters.Text_Blocks;
+with Natools.Web.Filters.Text_Replacement;
 with Natools.Web.Reload_Pages;
 with Natools.Web.Simple_Pages.Markdown_Pages;
 with Natools.Web.Simple_Pages.Markdown_Multipages;
@@ -93,6 +94,8 @@ package body Lithium.Dispatchers is
         ("legacy-comment", Lithium.Legacy_Filters.Create'Access);
       Holder.Register
         ("pass-through", Natools.Web.Filters.Pass_Through.Create'Access);
+      Holder.Register
+        ("replace-text", Natools.Web.Filters.Text_Replacement.Create'Access);
       Holder.Register
         ("text-block", Natools.Web.Filters.Text_Blocks.Create'Access);
 
