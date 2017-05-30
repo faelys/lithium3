@@ -45,7 +45,7 @@ package body Lithium.Access_Log is
    package String_Tables is
       type Enum is
         (Peer_Name, Method, Path, Http_Version, Referrer,
-         User_Agent, Cookies, Host, Real_IP, Forwarded_For);
+         User_Agent, Cookies, Host, Real_IP, Forwarded_For, Forwarded_Proto);
    end String_Tables;
 
    type Holder_Array is array (String_Tables.Enum) of String_Holder;
@@ -84,6 +84,7 @@ package body Lithium.Access_Log is
      & "host INTEGER, "
      & "real_ip INTEGER, "
      & "forwarded_for INTEGER, "
+     & "forwarded_proto INTEGER, "
      & "FOREIGN KEY (peer_name) REFERENCES peer_names(rowid), "
      & "FOREIGN KEY (method) REFERENCES methods(rowid), "
      & "FOREIGN KEY (path) REFERENCES paths(rowid), "
@@ -93,12 +94,13 @@ package body Lithium.Access_Log is
      & "FOREIGN KEY (cookies) REFERENCES cookies(rowid), "
      & "FOREIGN KEY (host) REFERENCES hosts(rowid), "
      & "FOREIGN KEY (real_ip) REFERENCES real_ips(rowid), "
-     & "FOREIGN KEY (forwarded_for) REFERENCES forwarded_fors(rowid));";
+     & "FOREIGN KEY (forwarded_for) REFERENCES forwarded_fors(rowid), "
+     & "FOREIGN KEY (forwarded_proto) REFERENCES forwarded_fors(rowid));";
 
    Insert_SQL : constant String := "INSERT INTO access "
      & "(peer_name, method, path, http_version, status_code, bytes, referrer, "
      & "user_agent, cookies, build_time, export_time, "
-     & "host, real_ip, forwarded_for) "
+     & "host, real_ip, forwarded_for, forwarded_proto) "
      & "VALUES ("
      & "(SELECT rowid FROM peer_names WHERE value = ?1),"
      & "(SELECT rowid FROM methods WHERE value = ?2),"
@@ -111,7 +113,8 @@ package body Lithium.Access_Log is
      & "?10, ?11, "
      & "(SELECT rowid FROM hosts WHERE value = ?12),"
      & "(SELECT rowid FROM real_ips WHERE value = ?13),"
-     & "(SELECT rowid FROM forwarded_fors WHERE value = ?14)"
+     & "(SELECT rowid FROM forwarded_fors WHERE value = ?14),"
+     & "(SELECT rowid FROM forwarded_protos WHERE value = ?15)"
      & ");";
 
    procedure Bind
@@ -242,6 +245,7 @@ package body Lithium.Access_Log is
       Bind (12, Values.Strings (Host), "host");
       Bind (13, Values.Strings (Real_IP), "real IP");
       Bind (14, Values.Strings (Forwarded_For), "forwarded for");
+      Bind (15, Values.Strings (Forwarded_Proto), "forwarded proto");
    end Bind;
 
 
@@ -444,6 +448,7 @@ package body Lithium.Access_Log is
          when Host =>          return "hosts";
          when Real_IP =>       return "real_ips";
          when Forwarded_For => return "forwarded_fors";
+         when Forwarded_Proto => return "forwarded_protos";
       end case;
    end Table_Name;
 
@@ -485,7 +490,8 @@ package body Lithium.Access_Log is
             Cookies => Hold_Header ("Cookie"),
             Host => Hold_Header ("Host"),
             Real_IP => Hold_Header ("X-Real-IP"),
-            Forwarded_For => Hold_Header ("X-Forwarded-For")),
+            Forwarded_For => Hold_Header ("X-Forwarded-For"),
+            Forwarded_Proto => Hold_Header ("X-Forwarded-Proto")),
          Status_Code => Integer'Value (AWS.Messages.Image
            (AWS.Response.Status_Code (Response))),
          Bytes => Long_Integer (AWS.Response.Content_Length (Response)),
