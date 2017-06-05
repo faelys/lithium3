@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2017, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -24,6 +24,7 @@ with Natools.Web.Filters.Text_Replacement;
 with Natools.Web.Reload_Pages;
 with Natools.Web.Simple_Pages.Markdown_Pages;
 with Natools.Web.Simple_Pages.Markdown_Multipages;
+with Natools.Web.Sites.Updates;
 with Natools.Web.Tag_Pages;
 
 with Lithium.Access_Log;
@@ -103,5 +104,12 @@ package body Lithium.Dispatchers is
 
       return Result;
    end Create;
+
+
+   not overriding procedure Purge (Object : in Handler) is
+      Update : Natools.Web.Sites.Updates.Expiration_Purger;
+   begin
+      Object.Ref.Update.Queue (Update);
+   end Purge;
 
 end Lithium.Dispatchers;
