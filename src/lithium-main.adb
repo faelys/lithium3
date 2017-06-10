@@ -14,15 +14,33 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.           --
 ------------------------------------------------------------------------------
 
+with Ada.Calendar;
 with Ada.Command_Line;
 with Ada.Directories;
 with Ada.Text_IO;
 with AWS.Config;
 with AWS.Server;
+with Natools.Cron;
 with Lithium.Dispatchers;
 with Lithium.Log;
 
 procedure Lithium.Main is
+   procedure Start_Mark (Cron_Entry : in out Natools.Cron.Cron_Entry);
+
+   procedure Start_Mark (Cron_Entry : in out Natools.Cron.Cron_Entry) is
+      Now : constant Ada.Calendar.Time := Ada.Calendar.Clock;
+   begin
+      Cron_Entry.Set
+        ((Origin => Ada.Calendar.Time_Of
+                     (Ada.Calendar.Year (Now),
+                      Ada.Calendar.Month (Now),
+                      Ada.Calendar.Day (Now),
+                      0.0),
+          Period => 86_400.0),
+         Log.Marker'(null record));
+   end Start_Mark;
+
+   Cron_Entry : Natools.Cron.Cron_Entry;
    WS : AWS.Server.HTTP;
    Debug : constant Boolean := Ada.Command_Line.Argument_Count >= 2;
    Handler : Lithium.Dispatchers.Handler;
@@ -42,15 +60,18 @@ begin
    elsif Ada.Directories.Exists (Ada.Command_Line.Argument (2)) then
       Ada.Text_IO.Put_Line ("Websever started, waiting for removal of "
         & Ada.Command_Line.Argument (2));
+      Start_Mark (Cron_Entry);
       loop
          delay 1.0;
          exit when not Ada.Directories.Exists (Ada.Command_Line.Argument (2));
       end loop;
    else
       Ada.Text_IO.Put_Line ("Websever started, waiting for Q press");
+      Start_Mark (Cron_Entry);
       AWS.Server.Wait (AWS.Server.Q_Key_Pressed);
    end if;
 
    AWS.Server.Shutdown (WS);
    Handler.Purge;
+   Cron_Entry.Reset;
 end Lithium.Main;

@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2017, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -14,6 +14,7 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.           --
 ------------------------------------------------------------------------------
 
+with Ada.Calendar;
 with Ada.Text_IO;
 with Syslog.Guess.App_Name;
 with Syslog.Guess.Hostname;
@@ -45,6 +46,32 @@ package body Lithium.Log is
          Natools.Web.Log := Lithium.Log.Syslog_Log'Access;
       end if;
    end Initialize;
+
+
+   overriding procedure Run (Object : in out Marker) is
+      pragma Unreferenced (Object);
+      function Image (N : Natural) return Character
+        is (Character'Val (Character'Pos ('0') + N));
+      Now : constant Ada.Calendar.Time := Ada.Calendar.Clock;
+      Year : Ada.Calendar.Year_Number;
+      Month : Ada.Calendar.Month_Number;
+      Day : Ada.Calendar.Day_Number;
+      Seconds : Ada.Calendar.Day_Duration;
+   begin
+      Ada.Calendar.Split (Now, Year, Month, Day, Seconds);
+      Ada.Text_IO.Put_Line ("------- "
+        & Image (Year / 1000)
+        & Image ((Year / 100) mod 10)
+        & Image ((Year / 10) mod 10)
+        & Image (Year mod 10)
+        & '-'
+        & Image (Month / 10)
+        & Image (Month mod 10)
+        & '-'
+        & Image (Day / 10)
+        & Image (Day mod 10)
+        & " -------");
+   end Run;
 
 
    procedure Syslog_Log

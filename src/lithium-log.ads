@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2017, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -18,6 +18,7 @@
 -- Lithium.Log provides the glue between ada-syslog and natools-web.        --
 ------------------------------------------------------------------------------
 
+with Natools.Cron;
 with Natools.Web;
 
 package Lithium.Log is
@@ -31,5 +32,10 @@ package Lithium.Log is
    procedure Syslog_Log
      (Severity : in Natools.Web.Severities.Code;
       Message : in String);
+
+
+   type Marker is new Natools.Cron.Callback with null record;
+
+   overriding procedure Run (Object : in out Marker);
 
 end Lithium.Log;
