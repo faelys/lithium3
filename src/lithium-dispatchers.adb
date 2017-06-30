@@ -16,6 +16,7 @@
 
 with Ada.Real_Time;
 with Natools.Web.Backends.Filesystem;
+with Natools.Web.Comment_Cookies;
 with Natools.Web.Escapes.Filters;
 with Natools.Web.Exchanges;
 with Natools.Web.Filters.Pass_Through;
@@ -28,6 +29,7 @@ with Natools.Web.Sites.Updates;
 with Natools.Web.Tag_Pages;
 
 with Lithium.Access_Log;
+with Lithium.Comment_Cookie_Smaz;
 with Lithium.Legacy_Filters;
 with Lithium.Markdown.Filters;
 
@@ -99,6 +101,12 @@ package body Lithium.Dispatchers is
         ("replace-text", Natools.Web.Filters.Text_Replacement.Create'Access);
       Holder.Register
         ("text-block", Natools.Web.Filters.Text_Blocks.Create'Access);
+
+      Holder.Register
+        (Comment_Cookie_Smaz.Key, Comment_Cookie_Smaz.Decoder'Access);
+      Holder.Set_Cookie_Encoder
+        (Comment_Cookie_Smaz.Encoder'Access,
+         Natools.Web.Comment_Cookies.Positional);
 
       Holder.Load (File_Name);
 
