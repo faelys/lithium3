@@ -30,6 +30,7 @@ with Natools.Web.Tag_Pages;
 
 with Lithium.Access_Log;
 with Lithium.Comment_Cookie_Smaz;
+with Lithium.Exception_Log;
 with Lithium.Legacy_Filters;
 with Lithium.Markdown.Filters;
 
@@ -62,6 +63,10 @@ package body Lithium.Dispatchers is
          Ada.Real_Time.To_Duration (Ada.Real_Time."-"
            (Ada.Real_Time.Clock, Middle)));
       return Result;
+   exception
+      when Ex : others =>
+         Exception_Log.Report (Ex, Request);
+         return Exception_Log.Respond (Ex, Request);
    end Dispatch;
 
 
