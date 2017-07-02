@@ -24,16 +24,17 @@ package body Lithium.Comment_Cookie_Smaz is
 
    Dict : constant Natools.Smaz_64.Dictionary
      := (Last_Code => 60,
-         Values_Last => 128,
+         Values_Last => 130,
          Variable_Length_Verbatim => False,
-         Max_Word_Length => 16,
-         Offsets => (15, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43,
-            44, 45, 46, 48, 49, 50, 51, 52, 55, 56, 58, 60, 62, 63, 64, 65, 66,
-            68, 69, 71, 73, 75, 78, 82, 86, 91, 94, 97, 98, 100, 102, 104, 106,
-            107, 109, 111, 112, 115, 116, 117, 119, 120, 122, 124, 126, 128),
-         Values => "legacy-commentcomment-markdowneoatmcn rlghsi.omp-u/comyen"
-            & "leacf""@dmabfrroou://httpbloggmailwww.frkinrior ""zonanwnetxjr"
-            & "eveecheris_",
+         Max_Word_Length => 17,
+         Offsets => (16, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45,
+            46, 47, 48, 50, 51, 52, 53, 54, 57, 58, 60, 62, 64, 65, 66, 67, 68,
+            70, 71, 73, 75, 77, 80, 84, 88, 93, 96, 99, 100, 102, 104, 106,
+            108, 109, 111, 113, 114, 117, 118, 119, 121, 122, 124, 126, 128,
+            130),
+         Values => "legacy-comment comment-markdown eoatmcn rlghsi.omp-u/comy"
+            & "enleacf""@dmabfrroou://httpbloggmailwww.frkinrior ""zonanwnetx"
+            & "jreveecheris_",
          Hash => Lithium.Comment_Cookie_Smaz_Hash.Hash'Access);
 
    function Encoder (Data : in Natools.S_Expressions.Atom) return String is
