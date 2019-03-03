@@ -30,6 +30,11 @@ package body Lithium.Markdown is
       Source, Destination : not null Buffer_Access;
    end record;
 
+   type Spoiler_Span is new Markup.Element_Callback with record
+      Buffer : Buffer_Access;
+   end record;
+
+
    procedure Append
      (To : in out Buffer_Access;
       Text : in String);
@@ -46,6 +51,11 @@ package body Lithium.Markdown is
    package Renderers is new Markup.Renderers.Html (Buffer_Access);
 
 
+   overriding procedure Open (Element : in out Spoiler_Span);
+   overriding procedure Append
+     (Element : in out Spoiler_Span; Text : in String);
+   overriding procedure Close (Element : in out Spoiler_Span);
+
    ------------------------------
    -- Local Helper Subprograms --
    ------------------------------
@@ -58,6 +68,19 @@ package body Lithium.Markdown is
    begin
       To.Append (Sx.To_Atom (Text));
    end Append;
+
+
+   overriding procedure Append
+     (Element : in out Spoiler_Span; Text : in String) is
+   begin
+      Element.Buffer.Append (Sx.To_Atom (Text));
+   end Append;
+
+
+   overriding procedure Close (Element : in out Spoiler_Span) is
+   begin
+      Element.Buffer.Append (Sx.To_Atom ("</span>"));
+   end Close;
 
 
    function Export (Buffer : Sx.Atom_Buffers.Atom_Buffer)
@@ -80,6 +103,11 @@ package body Lithium.Markdown is
    begin
       Element.Destination.Soft_Reset;
       Element.Destination.Append (Element.Source.Data);
+   end Open;
+
+   overriding procedure Open (Element : in out Spoiler_Span) is
+   begin
+      Element.Buffer.Append (Sx.To_Atom ("<span class=""spoiler"">"));
    end Open;
 
 
@@ -152,6 +180,7 @@ package body Lithium.Markdown is
       Parser.Emphasis (Renderer.Inserted, 2, "+");
       Parser.Emphasis (Renderer.Deleted, 2, "-");
       Parser.Emphasis (Renderer.Span, 1, "|");
+      Parser.Emphasis (Spoiler_Span'(Buffer => Parsed), 2, "%");
 
       loop
          Buffer.Soft_Reset;
@@ -264,6 +293,7 @@ package body Lithium.Markdown is
 
       Parser.Emphasis (Renderer.Inserted, 2, "+");
       Parser.Emphasis (Renderer.Deleted, 2, "-");
+      Parser.Emphasis (Spoiler_Span'(Buffer => Parsed), 2, "%");
 
       loop
          Buffer.Soft_Reset;
