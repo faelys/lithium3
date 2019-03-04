@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015-2017, Natacha Porté                                   --
+-- Copyright (c) 2015-2019, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -19,6 +19,8 @@ with Ada.Text_IO;
 with Markup.Parsers.Markdown.Extensions;
 with Markup.Renderers.Html;
 with Natools.S_Expressions.Atom_Buffers;
+
+with Lithium.Spoiler_Filters;
 
 package body Lithium.Markdown is
 
@@ -79,7 +81,7 @@ package body Lithium.Markdown is
 
    overriding procedure Close (Element : in out Spoiler_Span) is
    begin
-      Element.Buffer.Append (Sx.To_Atom ("</span>"));
+      Element.Buffer.Append (Spoiler_Filters.End_HTML);
    end Close;
 
 
@@ -107,7 +109,7 @@ package body Lithium.Markdown is
 
    overriding procedure Open (Element : in out Spoiler_Span) is
    begin
-      Element.Buffer.Append (Sx.To_Atom ("<span class=""spoiler"">"));
+      Element.Buffer.Append (Spoiler_Filters.Begin_HTML);
    end Open;
 
 

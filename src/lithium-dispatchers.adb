@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015-2017, Natacha Porté                                   --
+-- Copyright (c) 2015-2019, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -33,6 +33,7 @@ with Lithium.Comment_Cookie_Smaz;
 with Lithium.Exception_Log;
 with Lithium.Legacy_Filters;
 with Lithium.Markdown.Filters;
+with Lithium.Spoiler_Filters;
 
 package body Lithium.Dispatchers is
 
@@ -104,6 +105,8 @@ package body Lithium.Dispatchers is
         ("pass-through", Natools.Web.Filters.Pass_Through.Create'Access);
       Holder.Register
         ("replace-text", Natools.Web.Filters.Text_Replacement.Create'Access);
+      Holder.Register
+        ("spoiler-filter", Lithium.Spoiler_Filters.Create'Access);
       Holder.Register
         ("text-block", Natools.Web.Filters.Text_Blocks.Create'Access);
 
