@@ -15,6 +15,7 @@
 ------------------------------------------------------------------------------
 
 with Ada.Real_Time;
+with Natools.Web.ACL.Sx_Backends;
 with Natools.Web.Backends.Filesystem;
 with Natools.Web.Comment_Cookies;
 with Natools.Web.Escapes.Filters;
@@ -77,6 +78,9 @@ package body Lithium.Dispatchers is
       Result : constant Handler
         := (AWS.Dispatchers.Handler with Ref => Holder_Refs.Create (Holder));
    begin
+      Holder.Register
+        ("s-expr", Natools.Web.ACL.Sx_Backends.Create'Access);
+
       Holder.Register
         ("markdown-page",
          Natools.Web.Simple_Pages.Markdown_Pages.Create'Access);
