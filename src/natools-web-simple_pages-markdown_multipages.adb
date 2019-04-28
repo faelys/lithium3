@@ -183,18 +183,35 @@ package body Natools.Web.Simple_Pages.Markdown_Multipages is
       Line, Markdown : S_Expressions.Atom_Buffers.Atom_Buffer;
       Event : S_Expressions.Events.Event;
       Finished : Boolean;
+      Template : Page_Template;
    begin
       Read_Pages :
       loop
-         Parser.Next (Event);
-         exit Read_Pages when Event /= S_Expressions.Events.Open_List;
-         Parser.Lock (Lock);
-         Parser.Next (Event);
-         exit Read_Pages when Event /= S_Expressions.Events.Add_Atom;
+         Skip_To_Next_Page :
+         loop
+            Parser.Next (Event);
+            exit Read_Pages when Event /= S_Expressions.Events.Open_List;
+            Parser.Lock (Lock);
+            Parser.Next (Event);
+            exit Read_Pages when Event /= S_Expressions.Events.Add_Atom;
+            exit Skip_To_Next_Page when Parser.Current_Atom'Length > 0;
+
+            --  Read templae
+            Update (Template, Parser);
+            Parser.Unlock (Lock);
+         end loop Skip_To_Next_Page;
 
          declare
+            use type S_Expressions.Offset;
             Path_Spec : constant S_Expressions.Atom := Parser.Current_Atom;
-            Page : constant Page_Ref := Create (Parser);
+            Page : constant Page_Ref := Create
+              (Parser,
+               Template,
+               (if Path_Spec (Path_Spec'First) in Character'Pos ('#')
+                                                | Character'Pos ('+')
+                                                | Character'Pos ('-')
+                then Path_Spec (Path_Spec'First + 1 .. Path_Spec'Last)
+                else Path_Spec));
          begin
             Markdown.Soft_Reset;
             Read_Markdown :
