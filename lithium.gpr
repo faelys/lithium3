@@ -46,7 +46,8 @@ project Lithium is
    end Compiler;
 
    package Linker is
-      for Default_Switches ("Ada") use ("-g", "-O3", "-lsqlite3");
+      for Default_Switches ("Ada")
+        use ("-g", "-O3", "-lsqlite3", "-lturbojpeg");
    end Linker;
 
      package Binder is
