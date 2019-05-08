@@ -36,6 +36,7 @@ with Lithium.Comment_Cookie_Smaz;
 with Lithium.Exception_Log;
 with Lithium.Legacy_Filters;
 with Lithium.Markdown.Filters;
+with Lithium.Photo_Posts;
 with Lithium.Spoiler_Filters;
 
 package body Lithium.Dispatchers is
@@ -80,6 +81,9 @@ package body Lithium.Dispatchers is
       Result : constant Handler
         := (AWS.Dispatchers.Handler with Ref => Holder_Refs.Create (Holder));
    begin
+      Natools.Web.Simple_Pages.Dynamic_Multipages.Register
+        ("photo-posts", Lithium.Photo_Posts.Create'Access);
+
       Holder.Register
         ("s-expr", Natools.Web.ACL.Sx_Backends.Create'Access);
 
