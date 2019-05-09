@@ -43,6 +43,8 @@ project Lithium is
          "-fstack-check",
          "-g",
          "-O3");
+      for Switches ("natools-web-simple_pages-markdown_pages*")
+        use Compiler'Default_Switches ("Ada") & ("-gnatD");
    end Compiler;
 
    package Linker is
