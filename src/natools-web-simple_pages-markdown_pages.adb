@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2019, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -14,6 +14,7 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.           --
 ------------------------------------------------------------------------------
 
+with Ada.Directories;
 with Ada.Streams.Stream_IO;
 with Natools.File_Streams;
 with Natools.S_Expressions.Atom_Ref_Constructors;
@@ -57,8 +58,9 @@ package body Natools.Web.Simple_Pages.Markdown_Pages is
    function Create (File : in S_Expressions.Atom)
      return Sites.Page_Loader'Class is
    begin
-      return Loader'(File_Path
-        => S_Expressions.Atom_Ref_Constructors.Create (File));
+      return Loader'
+        (File_Path => S_Expressions.Atom_Ref_Constructors.Create (File),
+         others => <>);
    end Create;
 
 
@@ -67,14 +69,42 @@ package body Natools.Web.Simple_Pages.Markdown_Pages is
       Builder : in out Sites.Site_Builder;
       Path : in S_Expressions.Atom)
    is
+      use type Ada.Calendar.Time;
+      use type S_Expressions.Atom;
+   begin
+      if Object.Cache.Ref.Is_Empty
+        or else Object.Cache.Ref.Query.Web_Path.Query /= Path
+        or else Object.File_Time
+           /= Ada.Directories.Modification_Time
+              (S_Expressions.To_String (Object.File_Path.Query))
+      then
+         if not Object.Cache.Ref.Is_Empty then
+            Log (Severities.Info, "Force rebuilding page object for """
+              & S_Expressions.To_String (Path) & '"');
+         end if;
+
+         Force_Load (Object, Builder, Path);
+      else
+         Register (Object.Cache, Builder, Path);
+      end if;
+   end Load;
+
+
+   not overriding procedure Force_Load
+     (Object : in out Loader;
+      Builder : in out Sites.Site_Builder;
+      Path : in S_Expressions.Atom)
+   is
+      File_Name : constant String
+        := S_Expressions.To_String (Object.File_Path.Query);
       Stream : aliased File_Streams.File_Stream := File_Streams.Open
-        (Ada.Streams.Stream_IO.In_File,
-         S_Expressions.To_String (Object.File_Path.Query));
+        (Ada.Streams.Stream_IO.In_File, File_Name);
       Parser : Lithium.Line_Parsers.Parser (Stream'Access);
       Lock : S_Expressions.Lockable.Lock_State;
       Text : S_Expressions.Atom_Refs.Immutable_Reference;
       Summary : S_Expressions.Atom_Refs.Immutable_Reference;
    begin
+      Object.File_Time := Ada.Directories.Modification_Time (File_Name);
       Parser.Next;
       Parser.Lock (Lock);
       Parser.Next;
@@ -98,7 +128,8 @@ package body Natools.Web.Simple_Pages.Markdown_Pages is
          end;
 
          Register (Page, Builder, Path);
+         Object.Cache := Page;
       end;
-   end Load;
+   end Force_Load;
 
 end Natools.Web.Simple_Pages.Markdown_Pages;

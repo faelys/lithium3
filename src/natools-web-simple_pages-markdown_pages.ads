@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Copyright (c) 2015, Natacha Porté                                        --
+-- Copyright (c) 2015-2019, Natacha Porté                                   --
 --                                                                          --
 -- Permission to use, copy, modify, and distribute this software for any    --
 -- purpose with or without fee is hereby granted, provided that the above   --
@@ -24,6 +24,7 @@
 with Natools.S_Expressions;
 with Natools.Web.Sites;
 
+private with Ada.Calendar;
 private with Natools.S_Expressions.Atom_Refs;
 
 package Natools.Web.Simple_Pages.Markdown_Pages is
@@ -35,6 +36,11 @@ package Natools.Web.Simple_Pages.Markdown_Pages is
       Builder : in out Sites.Site_Builder;
       Path : in S_Expressions.Atom);
 
+   not overriding procedure Force_Load
+     (Object : in out Loader;
+      Builder : in out Sites.Site_Builder;
+      Path : in S_Expressions.Atom);
+
    function Create (File : in S_Expressions.Atom)
      return Sites.Page_Loader'Class;
 
@@ -42,6 +48,8 @@ private
 
    type Loader is new Sites.Page_Loader with record
       File_Path : S_Expressions.Atom_Refs.Immutable_Reference;
+      File_Time : Ada.Calendar.Time;
+      Cache : Page_Ref;
    end record;
 
 end Natools.Web.Simple_Pages.Markdown_Pages;
