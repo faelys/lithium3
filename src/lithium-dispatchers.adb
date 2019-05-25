@@ -15,6 +15,8 @@
 ------------------------------------------------------------------------------
 
 with Ada.Real_Time;
+with GNAT.SHA1;
+with Natools.S_Expressions;
 with Natools.Web.ACL.Sx_Backends;
 with Natools.Web.Backends.Filesystem;
 with Natools.Web.Comment_Cookies;
@@ -40,6 +42,11 @@ with Lithium.Photo_Posts;
 with Lithium.Spoiler_Filters;
 
 package body Lithium.Dispatchers is
+
+   function SHA1_Digest (Msg : in Natools.S_Expressions.Atom)
+     return Natools.S_Expressions.Atom
+     is (GNAT.SHA1.Digest (Msg));
+
 
    overriding function Clone (Object : Handler) return Handler is
    begin
@@ -84,6 +91,7 @@ package body Lithium.Dispatchers is
       Natools.Web.Simple_Pages.Dynamic_Multipages.Register
         ("photo-posts", Lithium.Photo_Posts.Create'Access);
 
+      Natools.Web.ACL.Sx_Backends.Register ('1', SHA1_Digest'Access);
       Holder.Register
         ("s-expr", Natools.Web.ACL.Sx_Backends.Create'Access);
 
